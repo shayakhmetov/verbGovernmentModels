@@ -8,25 +8,24 @@ rus_alphas = 'ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ
 rus_lower_alphas = rus_alphas.lower()
 digits = '1234567890'
 
-def parse_dict(filename):
-    dict = {}
-    err_number = 0
+def parse_dict(file_name):
+    verb_dict = {}
+    errors_count = 0
     error_file = open('errors.txt', 'w')
 
-    with codecs.open(filename, 'r', 'utf-8') as f:
+    with codecs.open(file_name, 'r', 'utf-8') as f:
         for line in f:
             try:
                 [word, gov_model] = parse_line(line)
-                dict[word] = gov_model
+                verb_dict[word] = gov_model
             except ParseException as pe:
-                err_number += 1
-                if len(line) < 70 or True:
-                    print(pe.line)
-                    print(" "*(pe.column - 1) + "^")
-                    print(" ", pe, '\n')
+                errors_count += 1
+                print(pe.line)
+                print(" "*(pe.column - 1) + "^")
+                print(" ", pe, '\n')
                 error_file.write(line)
 
-    return dict, err_number
+    return verb_dict, errors_count
 
 
 def parse_line(line):
@@ -60,10 +59,7 @@ def parse_line(line):
     elements = Forward()
     element = (Literal('DO:') + do_descriptions) | (Literal('A:') + a_descriptions) | (Literal('C:') + c_descriptions)
     elements_tail = Optional(or_and + elements)
-    # elements << (element + or_and + elements | element | l_paren + elements + r_paren |
-    #              l_paren + element + or_and + elements + r_paren)
     elements << (element + elements_tail | l_paren + elements + r_paren + elements_tail)
-
 
     gov_model = Group(l_paren + elements + r_paren)
     gov_models = OneOrMore(gov_model)
@@ -78,7 +74,7 @@ def parse_line(line):
     # omonim = Group(l_bracket + Optional(sem_classes) + Optional(verb_aspect) + Optional(syntax_roles) + r_bracket)
     omonim = Group(l_bracket + verb_aspect + syntax_roles + r_bracket) # Optional(sem_classes)
 
-    verb_name = Word(rus_alphas)
+    verb_name = Word(rus_alphas + rus_lower_alphas + '.') # or rus_alphas ONLY!
 
     dict_element = verb_name + Group(OneOrMore(omonim))
 
@@ -88,8 +84,8 @@ def parse_line(line):
     return dict_element.parseString(line)
 
 if __name__ == '__main__':
-    filename = 'temp.txt'
-    # filename = 'cleaned_dict.txt'
+    # filename = 'temp.txt'
+    filename = 'cleaned_dict.txt'
     # filename = 'dict.txt'
     print('Parsing ...\n')
     dict_res, err_number = parse_dict(filename)
