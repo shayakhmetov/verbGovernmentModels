@@ -1,2 +1,3 @@
 *.txt
 *.pyc
+!cleaned_dict.txt

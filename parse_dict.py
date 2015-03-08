@@ -39,7 +39,7 @@ def parse_line(line):
     sem_classes = Group(l_paren + delimitedList(Word(digits), delim=',') + r_paren)
 
     animate = oneOf('о но о/но')
-    preposition = Word(rus_lower_alphas)
+    preposition = Word(rus_lower_alphas + '-')
     word_case = oneOf('Р Р2 Д В Т П П2')
     question = oneOf('где куда откуда')
 
@@ -57,9 +57,9 @@ def parse_line(line):
 
     or_and = oneOf('|| &&')
     elements = Forward()
-    element = (Literal('DO:') + do_descriptions) | (Literal('A:') + a_descriptions) | (Literal('C:') + c_descriptions)
+    element = (l_paren + elements + r_paren) | (Literal('DO:') + do_descriptions) | (Literal('A:') + a_descriptions) | (Literal('C:') + c_descriptions)
     elements_tail = Optional(or_and + elements)
-    elements << (element + elements_tail | l_paren + elements + r_paren + elements_tail)
+    elements << (element + elements_tail)
 
     gov_model = Group(l_paren + elements + r_paren)
     gov_models = OneOrMore(gov_model)
