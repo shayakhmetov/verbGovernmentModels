@@ -18,7 +18,9 @@ def main():
     logic_two_or = r"\|\|  \|\||&&  &&"
     abscent_prep_and_case = r"\(0\), \(0\)"
     strange_dot = r"•"
-    two_dots_empty = r",. ."
+    two_dots_empty = r",\. \."
+    models_together = r"\)[ACD]:|откуда[ACD]:"
+    two_braces = r"\{(возвр|нп|п|п/нп) \{(возвр|нп|п|п/нп)"
 
     file_empty_models = open("dictionary_bugs/bugs_empty_models.txt", "w")
     file_empty_verb_aspect = open("dictionary_bugs/bugs_empty_verb_aspect.txt", "w")
@@ -27,6 +29,8 @@ def main():
     file_abscent_prep_and_case = open("dictionary_bugs/bugs_abscent_prepNcase.txt", "w")
     file_strange_dot = open("dictionary_bugs/bugs_strange_dot.txt", "w")
     file_two_dots_empty = open("dictionary_bugs/bugs_two_dots_empty.txt", "w")
+    file_models_together = open("dictionary_bugs/bugs_models_together.txt", "w")
+    file_two_braces = open("dictionary_bugs/bugs_two_braces.txt", "w")
 
     file_empty_models.write("# ошибки вида `{п  }`, пустые модели управления\n")
     file_empty_verb_aspect.write("# ошибки вида `[  {`, отсутствует вид глагола\n")
@@ -35,6 +39,9 @@ def main():
     file_abscent_prep_and_case.write("# ошибки вида `(0), (0)`, отсутствие предлога и падежа\n")
     file_strange_dot.write("# ошибки вида `•`, неопознанный символ\n")
     file_two_dots_empty.write("# ошибки вида `,. .`, многоточие\n")
+    file_models_together.write("# ошибки вида `)C:`, слитные модели управления без разделителей (&&, ||)\n")
+    file_two_braces.write("# ошибки вида '{возвр {возвр'\n")
+
 
     for line in sys.stdin:
         if not re.search(empty_models, line):
@@ -44,7 +51,9 @@ def main():
                             if not re.search(abscent_prep_and_case, line):
                                 if not re.search(strange_dot, line):
                                     if not re.search(two_dots_empty, line):
-                                        sys.stdout.write(line)
+                                        if not re.search(models_together, line):
+                                            if not re.search(two_braces, line):
+                                                sys.stdout.write(line)
 
         if re.search(empty_models, line):
             file_empty_models.write(line)
@@ -60,7 +69,10 @@ def main():
             file_strange_dot.write(line)
         if re.search(two_dots_empty, line):
             file_two_dots_empty.write(line)
-
+        if re.search(models_together, line):
+            file_models_together.write(line)
+        if re.search(two_braces, line):
+            file_two_braces.write(line)
 
 if __name__ == '__main__':
     main()

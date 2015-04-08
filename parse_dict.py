@@ -1,28 +1,28 @@
 #coding=utf-8
 __author__ = 'rim'
-import codecs
-import sys
 from pyparsing import Word, Optional, Group, Literal, ParseException, OneOrMore, Forward, delimitedList, oneOf
+import pickle
 
 rus_alphas = 'ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ'
 rus_lower_alphas = rus_alphas.lower()
 digits = '1234567890'
 
-def parse_dict(file_name):
+def parse_dict(file_name, suppress_errors=True):
     verb_dict = {}
     errors_count = 0
     error_file = open('errors.txt', 'w')
 
-    with codecs.open(file_name, 'r', 'utf-8') as f:
+    with open(file_name, 'r') as f:
         for line in f:
             try:
                 [word, gov_model] = parse_line(line)
-                verb_dict[word] = gov_model
+                verb_dict[word.lower()] = {"model": gov_model, "source": line.split(" ", 1)[1]}
             except ParseException as pe:
-                errors_count += 1
-                print(pe.line)
-                print(" "*(pe.column - 1) + "^")
-                print(" ", pe, '\n')
+                if not suppress_errors:
+                    errors_count += 1
+                    print(pe.line)
+                    print(" "*(pe.column - 1) + "^")
+                    print(" ", pe, '\n')
                 error_file.write(line)
 
     return verb_dict, errors_count
@@ -61,7 +61,7 @@ def parse_line(line):
     elements_tail = Optional(or_and + elements)
     elements << (element + elements_tail)
 
-    gov_model = Group(l_paren + elements + r_paren)
+    gov_model = Group(l_paren + 'INF' + r_paren) | Group(l_paren + elements + r_paren)
     gov_models = OneOrMore(gov_model)
 
     transitive = oneOf('п нп п/нп возвр')
@@ -78,16 +78,29 @@ def parse_line(line):
 
     dict_element = verb_name + Group(OneOrMore(omonim))
 
-    if line[-1] == '\n':
-        line = line[:-1]
+    return dict_element.parseString(line.rstrip())
 
-    return dict_element.parseString(line)
+
+def get_dictionary(dict_file=None, suppress_errors=True, write_file=None, read_file=None):
+    if not read_file:
+        print('Parsing dictionary...\n')
+        dict_res, err_number = parse_dict(dict_file, suppress_errors=suppress_errors)
+        if not suppress_errors:
+            print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number)
+        if write_file:
+            with open(write_file, "wb") as filename:
+                pickle.dump(dict_res, filename)
+    else:
+        with open(read_file, "rb") as filename:
+            dict_res = pickle.load(filename)
+    return dict_res
+
 
 if __name__ == '__main__':
+    print('Parsing dictionary...\n')
     # filename = 'temp.txt'
     filename = 'cleaned_dict.txt'
     # filename = 'dict.txt'
-    print('Parsing ...\n')
     dict_res, err_number = parse_dict(filename)
     print('\nParsing completed!\n')
     # for key, val in dict_res.items():
