@@ -1,9 +1,13 @@
 __author__ = 'rim'
 import sys
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction import FeatureHasher
 from add_ru_table import construct_ru_table
 
+
+number_of_new_examples, number_of_good_examples = 1000, 1000000
+n_of_new_verbs, n_of_good_verbs = 0, 0
 
 def construct_dictionary(verbs_filename):
     dictionary = {}
@@ -22,12 +26,18 @@ def get_verbs_dependencies(one_clause, dictionary, ru_table_dict):
             known = True
         else:
             known = False
-        if word[3] == 'V' and word[2] != '<unknown>' and word[5] in ru_table_dict:
+        global n_of_good_verbs, n_of_new_verbs
+        if word[3] == 'V' and word[2] != '<unknown>' and word[5] in ru_table_dict and int(word[6]) == 0 \
+                and ((known and n_of_good_verbs < number_of_good_examples) or (not known and n_of_new_verbs < number_of_new_examples)):
             for depended_word in one_clause:
                 if word != depended_word and depended_word[5] in ru_table_dict and depended_word[6] == word[0]\
-                        and depended_word[4] in 'NSV' and depended_word[2] not in '.?!' and depended_word[2] != 'iq':
+                        and depended_word[4] in 'NSV' and depended_word[2] not in [".", "?", "!", "iq", "<unknown>"]:
                     dependencies.append(depended_word)
         if dependencies:
+            if not known:
+                n_of_new_verbs += 1
+            else:
+                n_of_good_verbs += 1
             dependencies = sorted(dependencies, key=lambda w: int(w[0]))
             verbs_dependencies.append({'verb': word, 'deps': dependencies, 'clause': one_clause, 'known': known})
     return verbs_dependencies
@@ -61,9 +71,11 @@ def add_word_features(word, all_deprel, ru_table):
     # values4 = {c: i for i, c in enumerate(' -,ACIMNPQRSV')}
     values7 = all_deprel
 
-    features.append(values3[word[3]])
-    features.append(values7[word[7]])
-    features += ru_table['vectors'][ru_table['dict'][word[5]]]
+    features.append(values3[word[3]] + 1)
+    features.append(values7[word[7]] + 1)
+    def select_important(vector_from_table):
+        return [v + 1 for i, v in enumerate(vector_from_table) if i in {0, 1, 3, 6, 7, 10, 11, 12, 15, 16, 17, 18}]
+    features += select_important(ru_table['vectors'][ru_table['dict'][word[5]]])
 
     return features
 
@@ -82,14 +94,16 @@ def construct_features(verb_deps, all_deprel, ru_table):
     for i in range(2):
         if i < len(right_deps):
             features += add_word_features(right_deps[i], all_deprel, ru_table)
+            features.append(int(right_deps[i][0]) - int(verb[0]))
         else:
-            features += [-1]*word_features_len
+            features += [0]*(word_features_len + 1)
 
     for i in range(2):
         if len(left_deps) - i - 1 >= 0:
             features += add_word_features(left_deps[-(i + 1)], all_deprel, ru_table)
+            features.append(int(verb[0]) - int(left_deps[-(i + 1)][0]))
         else:
-            features += [-1]*word_features_len
+            features += [0]*(word_features_len + 1)
 
     return features
 
@@ -138,15 +152,15 @@ def main():
 
     control_set, new_verbs = [], []
 
-    maxlen = 0
     for verb_dependencies in verbs_dependencies:
-        if verb_dependencies['verb'][2] in dictionary:
+        if verb_dependencies['known']:
             data_set.append(construct_features(verb_dependencies, all_deprel, ru_table))
             targets.append(dictionary[verb_dependencies['verb'][2]]['id'])
             verbs[dictionary[verb_dependencies['verb'][2]]['id']] = verb_dependencies['verb'][2]
         else:
             control_set.append(construct_features(verb_dependencies, all_deprel, ru_table))
             new_verbs.append(verb_dependencies['verb'][2])
+
         # if verb_dependencies['verb'][5] in ru_table_dict:
         #     inru += 1
         # else:
@@ -160,11 +174,14 @@ def main():
         #         print(dep)
 
 
-    print('Good examples', len(data_set), '\tControl examples', len(control_set), '\tNumber of features ', len(data_set[0]))
-    clf = RandomForestClassifier(n_estimators=100)
+    # print('Good examples', len(data_set), '\tControl examples', len(control_set), '\tNumber of features ', len(data_set[0]))
+    # clf = RandomForestClassifier(n_estimators=30, max_features=1)
+    clf = MultinomialNB()
+    # print('Training the model...')
     clf.fit(data_set, targets)
+    # print('Predicting control verbs...')
     predicted = clf.predict(control_set)
-    # print(*[(new_verbs[i], verbs[d]) for i, d in enumerate(predicted)], sep='\n')
+    print(*[(new_verbs[i], verbs[d]) for i, d in enumerate(predicted)], sep='\n')
 
 
 if __name__ == '__main__':
