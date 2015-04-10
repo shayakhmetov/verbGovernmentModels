@@ -3,9 +3,11 @@ __author__ = 'rim'
 from pyparsing import Word, Optional, Group, Literal, ParseException, OneOrMore, Forward, delimitedList, oneOf
 import pickle
 
+
 rus_alphas = 'ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ'
 rus_lower_alphas = rus_alphas.lower()
 digits = '1234567890'
+
 
 def parse_dict(file_name, suppress_errors=True):
     verb_dict = {}
@@ -15,16 +17,20 @@ def parse_dict(file_name, suppress_errors=True):
     with open(file_name, 'r') as f:
         for line in f:
             try:
-                [word, gov_model] = parse_line(line)
-                verb_dict[word.lower()] = {"model": gov_model, "source": line.split(" ", 1)[1]}
+                line = line.strip()
+                parsed_dict = parse_line(line)
+                verb, gov_model = parsed_dict['verb'], parsed_dict['model']
+                verb_dict[verb.lower()] = {"model": gov_model, "source": line.split(" ", 1)[1]}
             except ParseException as pe:
+                errors_count += 1
                 if not suppress_errors:
-                    errors_count += 1
                     print(pe.line)
                     print(" "*(pe.column - 1) + "^")
                     print(" ", pe, '\n')
                 error_file.write(line)
-
+                # for key, val in verb_dict.items():
+                #     print(key, val)
+                # exit(1)
     return verb_dict, errors_count
 
 
@@ -43,8 +49,8 @@ def parse_line(line):
     word_case = oneOf('Р Р2 Д В Т П П2')
     question = oneOf('где куда откуда')
 
-    # prepositional_group = preposition + word_case + Optional(sem_classes)
-    prepositional_group = Optional(preposition) + Optional(word_case) + Optional(sem_classes)
+    prepositional_group = preposition + word_case + Optional(sem_classes)
+    # prepositional_group = Optional(preposition) + Optional(word_case) + Optional(sem_classes)
 
     c_description = delimitedList(prepositional_group, delim=',')
     c_descriptions = question + c_description
@@ -56,29 +62,32 @@ def parse_line(line):
     do_descriptions = delimitedList(do_description, delim=',')
 
     or_and = oneOf('|| &&')
-    elements = Forward()
-    element = (l_paren + elements + r_paren) | (Literal('DO:') + do_descriptions) | (Literal('A:') + a_descriptions) | (Literal('C:') + c_descriptions)
-    elements_tail = Optional(or_and + elements)
-    elements << (element + elements_tail)
+    plus = Literal('+')
 
-    gov_model = Group(l_paren + 'INF' + r_paren) | Group(l_paren + elements + r_paren)
-    gov_models = OneOrMore(gov_model)
+    # gov_model = Forward()
+    elementary_expr = Forward()
+    element = Group(Literal('DO:') + do_descriptions) | Group(Literal('A:') + a_descriptions) | \
+              Group(Literal('C:') + c_descriptions) | Group(Literal('INF')) | l_paren + elementary_expr + r_paren
+
+    elementary_expr << Group(element + Optional(OneOrMore(or_and + element)))
+
+    elements = elementary_expr + Optional(OneOrMore(plus + elementary_expr))
+
+    gov_model = Group(l_paren + elements('elements') + r_paren)
+    gov_models = Group(OneOrMore(gov_model))
 
     transitive = oneOf('п нп п/нп возвр')
-    # syntax_role = Group(l_brace + transitive + Optional(gov_models) + r_brace)
-    syntax_role = Group(l_brace + transitive + gov_models + r_brace)
-    syntax_roles = OneOrMore(syntax_role)
+    syntax_role = Group(l_brace + transitive('transitive') + gov_models('gov_models') + r_brace)
+    syntax_roles = Group(OneOrMore(syntax_role))
 
     verb_aspect = oneOf('св нсв св/нсв')
 
-    # omonim = Group(l_bracket + Optional(sem_classes) + Optional(verb_aspect) + Optional(syntax_roles) + r_bracket)
-    omonim = Group(l_bracket + verb_aspect + syntax_roles + r_bracket) # Optional(sem_classes)
+    omonim = Group(l_bracket + verb_aspect('verb_aspect') + syntax_roles('syntax_roles') + r_bracket)
 
-    verb_name = Word(rus_alphas + rus_lower_alphas + '.') # or rus_alphas ONLY!
+    verb_name = Word(rus_alphas) # or rus_alphas ONLY! rus_lower_alphas + '.'
 
-    dict_element = verb_name + Group(OneOrMore(omonim))
-
-    return dict_element.parseString(line.rstrip())
+    dict_element = verb_name('verb') + Group(OneOrMore(omonim))('model')
+    return dict_element.parseString(line)
 
 
 def get_dictionary(dict_file=None, suppress_errors=True, write_file=None, read_file=None):
@@ -96,13 +105,51 @@ def get_dictionary(dict_file=None, suppress_errors=True, write_file=None, read_f
     return dict_res
 
 
+def elements_print(intend, elementary_expr):
+        if elementary_expr[0] not in ['DO:', 'A:', 'C:', 'INF']:
+            for element in elementary_expr:
+                if element == '&&' or element == '||':
+                    print(' '*(intend+4), element)
+                elif element[0] in ['DO:', 'A:', 'C:', 'INF']:
+                    print(' '*(intend+6), element)
+                else:
+                    if len(element) > 1:
+                        elements_print((intend+6), element)
+                    else:
+                        elements_print(intend, element)
+        else:
+            print(' '*(intend+2), elementary_expr)
+
+
+def print_model(model):
+    print(' '*2, 'omonims[]:')
+    for i, omonim in enumerate(model):
+        print()
+        print(' '*4, i+1, 'omonim')
+        print(' '*6, 'verb_aspect =', omonim['verb_aspect'])
+        print(' '*6, 'syntax_roles[]:')
+        for j, syntax_role in enumerate(omonim['syntax_roles']):
+            print(' '*8, j+1, 'syntax_role')
+            print(' '*10, 'transitive =', syntax_role['transitive'])
+            print(' '*10, 'gov_models[]:')
+            for k, gov_model in enumerate(syntax_role['gov_models']):
+                print(' '*12, k+1, 'gov_model')
+                print(' '*12, 'elementary_exprs[]:')
+                for elementary_expr in gov_model['elements']:
+                    if elementary_expr != '+':
+                        elements_print(14, elementary_expr)
+                    else:
+                        print(' '*14, elementary_expr)
+
+
 if __name__ == '__main__':
     print('Parsing dictionary...\n')
-    # filename = 'temp.txt'
-    filename = 'cleaned_dict.txt'
+    filename = 'temp.txt'
+    # filename = 'dict_cleaned.txt'
     # filename = 'dict.txt'
-    dict_res, err_number = parse_dict(filename)
+    dict_res, err_number = parse_dict(filename, suppress_errors=False)
     print('\nParsing completed!\n')
-    # for key, val in dict_res.items():
-    #     print(key, val)
+    for key, val in dict_res.items():
+        print(key, val['source'])
+        print_model(val['model'])
     print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number)

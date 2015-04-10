@@ -6,7 +6,7 @@ from sklearn.feature_extraction import FeatureHasher
 from add_ru_table import construct_ru_table
 
 
-number_of_new_examples, number_of_good_examples = 1000, 1000000
+number_of_new_examples, number_of_good_examples = 1000000, 1000000
 n_of_new_verbs, n_of_good_verbs = 0, 0
 
 def construct_dictionary(verbs_filename):
@@ -131,6 +131,15 @@ def ru_table_to_vec(ru_table):
     return vectors
 
 
+def construct_verb_model(list_verb_deps, ru_table):
+    verb_models = []
+    for verb_deps in list_verb_deps:
+        verb = verb_deps['verb']
+        deps = verb_deps['deps']
+        left_valents = [d for d in deps if int(d[0]) < int(verb[0])]
+        right_valents = [d for d in deps if int(d[0]) > int(verb[0])]
+
+
 def main():
     verbs_filename = 'all_only_verbs.txt'
     conll_filename = 'malt-1.5/output_parser'
@@ -174,12 +183,12 @@ def main():
         #         print(dep)
 
 
-    # print('Good examples', len(data_set), '\tControl examples', len(control_set), '\tNumber of features ', len(data_set[0]))
-    # clf = RandomForestClassifier(n_estimators=30, max_features=1)
+    print('Good examples', len(data_set), '\tControl examples', len(control_set), '\tNumber of features ', len(data_set[0]), file=sys.stderr)
+    # clf = RandomForestClassifier(n_estimators=10, max_features=1)
     clf = MultinomialNB()
-    # print('Training the model...')
+    print('Training the model...', file=sys.stderr)
     clf.fit(data_set, targets)
-    # print('Predicting control verbs...')
+    print('Predicting control verbs...', file=sys.stderr)
     predicted = clf.predict(control_set)
     print(*[(new_verbs[i], verbs[d]) for i, d in enumerate(predicted)], sep='\n')
 
