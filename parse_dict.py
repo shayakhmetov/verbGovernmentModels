@@ -27,7 +27,7 @@ def parse_dict(file_name, suppress_errors=True):
                     print(pe.line)
                     print(" "*(pe.column - 1) + "^")
                     print(" ", pe, '\n')
-                error_file.write(line)
+                print(line, file=error_file)
                 # for key, val in verb_dict.items():
                 #     print(key, val)
                 # exit(1)
@@ -114,7 +114,7 @@ def elements_print(intend, elementary_expr):
                     print(' '*(intend+6), element)
                 else:
                     if len(element) > 1:
-                        elements_print((intend+6), element)
+                        elements_print((intend+4), element)
                     else:
                         elements_print(intend, element)
         else:
@@ -144,12 +144,12 @@ def print_model(model):
 
 if __name__ == '__main__':
     print('Parsing dictionary...\n')
-    filename = 'temp.txt'
-    # filename = 'dict_cleaned.txt'
+    # filename = 'temp.txt'
+    filename = 'dict_cleaned.txt'
     # filename = 'dict.txt'
     dict_res, err_number = parse_dict(filename, suppress_errors=False)
     print('\nParsing completed!\n')
-    for key, val in dict_res.items():
-        print(key, val['source'])
-        print_model(val['model'])
+    # for key, val in dict_res.items():
+    #     print(key, val['source'])
+    #     print_model(val['model'])
     print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number)
