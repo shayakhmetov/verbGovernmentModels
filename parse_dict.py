@@ -2,6 +2,7 @@
 __author__ = 'rim'
 from pyparsing import Word, Optional, Group, Literal, ParseException, OneOrMore, Forward, delimitedList, oneOf
 import pickle
+import sys
 
 
 rus_alphas = 'ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ'
@@ -13,14 +14,15 @@ def parse_dict(file_name, suppress_errors=True):
     verb_dict = {}
     errors_count = 0
     error_file = open('errors.txt', 'w')
-
+    i = 0
     with open(file_name, 'r') as f:
         for line in f:
             try:
                 line = line.strip()
                 parsed_dict = parse_line(line)
                 verb, gov_model = parsed_dict['verb'], parsed_dict['model']
-                verb_dict[verb.lower()] = {"model": gov_model, "source": line.split(" ", 1)[1]}
+                verb_dict[verb.lower()] = {"id": i, "model": gov_model, "source": line.split(" ", 1)[1]}
+                i += 1
             except ParseException as pe:
                 errors_count += 1
                 if not suppress_errors:
@@ -53,7 +55,7 @@ def parse_line(line):
     # prepositional_group = Optional(preposition) + Optional(word_case) + Optional(sem_classes)
 
     c_description = delimitedList(prepositional_group, delim=',')
-    c_descriptions = question + c_description
+    c_descriptions = question + Group(c_description)
 
     a_description = (preposition + word_case + animate + sem_classes) | (word_case + animate + sem_classes)
     a_descriptions = delimitedList(a_description, delim=',')
@@ -88,21 +90,6 @@ def parse_line(line):
 
     dict_element = verb_name('verb') + Group(OneOrMore(omonim))('model')
     return dict_element.parseString(line)
-
-
-def get_dictionary(dict_file=None, suppress_errors=True, write_file=None, read_file=None):
-    if not read_file:
-        print('Parsing dictionary...\n')
-        dict_res, err_number = parse_dict(dict_file, suppress_errors=suppress_errors)
-        if not suppress_errors:
-            print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number)
-        if write_file:
-            with open(write_file, "wb") as filename:
-                pickle.dump(dict_res, filename)
-    else:
-        with open(read_file, "rb") as filename:
-            dict_res = pickle.load(filename)
-    return dict_res
 
 
 def elements_print(intend, elementary_expr):
@@ -141,15 +128,22 @@ def print_model(model):
                     else:
                         print(' '*14, elementary_expr)
 
-
-if __name__ == '__main__':
-    print('Parsing dictionary...\n')
+def get_dictionary():
+    print('Parsing dictionary...\n', file=sys.stderr)
     # filename = 'temp.txt'
-    filename = 'dict_cleaned.txt'
-    # filename = 'dict.txt'
-    dict_res, err_number = parse_dict(filename, suppress_errors=False)
-    print('\nParsing completed!\n')
+    # filename = 'dict_cleaned.txt'
+    filename = 'dict.txt'
+    dict_res, err_number = parse_dict(filename, suppress_errors=True)
+    print('\nParsing completed!\n', file=sys.stderr)
+    # pickled_filename = 'pickled_dict'
+    # pickle.dump(dict_res, open(pickled_filename, 'wb'))
+    # dict_res = pickle.load(open(pickled_filename, 'rb'))
     # for key, val in dict_res.items():
     #     print(key, val['source'])
     #     print_model(val['model'])
-    print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number)
+    print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number, file=sys.stderr)
+    return dict_res
+
+
+if __name__ == '__main__':
+    get_dictionary()

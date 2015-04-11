@@ -4,18 +4,11 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction import FeatureHasher
 from add_ru_table import construct_ru_table
+from parse_dict import get_dictionary
 
 
 number_of_new_examples, number_of_good_examples = 1000000, 1000000
 n_of_new_verbs, n_of_good_verbs = 0, 0
-
-def construct_dictionary(verbs_filename):
-    dictionary = {}
-    with open(verbs_filename, 'r') as verbs_file:
-        for i, line in enumerate(verbs_file):
-            word = line.rstrip()
-            dictionary[word] = {'id': i}
-    return dictionary
 
 
 def get_verbs_dependencies(one_clause, dictionary, ru_table_dict):
@@ -30,16 +23,20 @@ def get_verbs_dependencies(one_clause, dictionary, ru_table_dict):
         if word[3] == 'V' and word[2] != '<unknown>' and word[5] in ru_table_dict and int(word[6]) == 0 \
                 and ((known and n_of_good_verbs < number_of_good_examples) or (not known and n_of_new_verbs < number_of_new_examples)):
             for depended_word in one_clause:
+                if depended_word[6] == word[0] and depended_word[4] in 'NSAV' and depended_word[5] not in ru_table_dict:
+                    dependencies = []
+                    break
                 if word != depended_word and depended_word[5] in ru_table_dict and depended_word[6] == word[0]\
-                        and depended_word[4] in 'NSV' and depended_word[2] not in [".", "?", "!", "iq", "<unknown>"]:
-                    dependencies.append(depended_word)
+                        and depended_word[2] not in [".", "?", "!", "iq", "<unknown>"] and depended_word[4] in 'NASV':
+                    if not (depended_word[4] in 'NA' and ru_table_dict[depended_word[5]][3] == 'nominative'):
+                        dependencies.append(depended_word)
         if dependencies:
             if not known:
                 n_of_new_verbs += 1
             else:
                 n_of_good_verbs += 1
             dependencies = sorted(dependencies, key=lambda w: int(w[0]))
-            verbs_dependencies.append({'verb': word, 'deps': dependencies, 'clause': one_clause, 'known': known})
+            verbs_dependencies.append({'verb': word, 'deps': dependencies, 'source': ' '.join([w[0] + '[' + w[1] + ']' for w in one_clause]), 'known': known})
     return verbs_dependencies
 
 
@@ -108,13 +105,6 @@ def construct_features(verb_deps, all_deprel, ru_table):
     return features
 
 
-def construct_name_converter(filename, dictionary):
-    with open(filename, 'r') as file:
-        for i, tag in enumerate(file):
-            tag = tag.strip()
-            dictionary[tag] = i
-
-
 def ru_table_to_vec(ru_table):
     new_dict = [(key, ru_table['dict'][key]) for key in ru_table['dict'].keys()]
     for i, (key, values) in enumerate(new_dict):
@@ -140,21 +130,15 @@ def construct_verb_model(list_verb_deps, ru_table):
         right_valents = [d for d in deps if int(d[0]) > int(verb[0])]
 
 
-def main():
-    verbs_filename = 'all_only_verbs.txt'
-    conll_filename = 'malt-1.5/output_parser'
-    ru_table_filename = 'ru-table-extended.tab'
+def train_and_predict(verbs_dependencies, ru_table, dictionary):
+    ru_table['vectors'] = ru_table_to_vec(ru_table)
 
     all_deprel_filename = 'all_deprel.txt'
     all_deprel = {}
-
-    construct_name_converter(all_deprel_filename, all_deprel)
-
-    dictionary = construct_dictionary(verbs_filename)
-    ru_table = construct_ru_table(ru_table_filename)
-    ru_table_dict = ru_table['dict']
-    verbs_dependencies = get_conll_verbs(conll_filename, dictionary, ru_table_dict)
-    ru_table['vectors'] = ru_table_to_vec(ru_table)
+    with open(all_deprel_filename, 'r') as file:
+        for i, tag in enumerate(file):
+            tag = tag.strip()
+            all_deprel[tag] = i
 
     verbs = {}
     data_set, targets = [], []
@@ -170,18 +154,6 @@ def main():
             control_set.append(construct_features(verb_dependencies, all_deprel, ru_table))
             new_verbs.append(verb_dependencies['verb'][2])
 
-        # if verb_dependencies['verb'][5] in ru_table_dict:
-        #     inru += 1
-        # else:
-        #     notinru += 1
-        #     print(verb_dependencies['verb'])
-        # for dep in verb_dependencies['deps']:
-        #     if dep[5] in ru_table_dict:
-        #         inru += 1
-        #     else:
-        #         notinru += 1
-        #         print(dep)
-
 
     print('Good examples', len(data_set), '\tControl examples', len(control_set), '\tNumber of features ', len(data_set[0]), file=sys.stderr)
     # clf = RandomForestClassifier(n_estimators=10, max_features=1)
@@ -193,5 +165,39 @@ def main():
     print(*[(new_verbs[i], verbs[d]) for i, d in enumerate(predicted)], sep='\n')
 
 
+def main():
+    conll_filename = 'malt-1.5/output_parser'
+    ru_table_filename = 'ru-table-extended.tab'
+
+    dictionary = get_dictionary()
+    ru_table = construct_ru_table(ru_table_filename)
+    ru_table_dict = ru_table['dict']
+    all_verbs_dependencies = get_conll_verbs(conll_filename, dictionary, ru_table_dict)
+
+    deps_dict = {}
+
+    def transform_words(words):
+        return [{'name': word[2], 'case': ru_table_dict[word[5]][3], 'type': word[4], 'animate': ru_table_dict[word[5]][0], 'id': int(word[0])} for word in words]
+
+    def transform_verb(verb_word):
+        return {'aspect': ru_table_dict[verb_word[5]][1], 'id': int(verb_word[0])}
+
+    for verb_deps in all_verbs_dependencies:
+        verb_name = verb_deps['verb'][2]
+        if verb_name in deps_dict:
+            deps_dict[verb_name]['all_deps'].append(transform_words(verb_deps['deps']))
+            deps_dict[verb_name]['verb'].append(transform_verb(verb_deps['verb']))
+            deps_dict[verb_name]['sources'].append(verb_deps['source'])
+        else:
+            deps_dict[verb_name] = {'verb': [transform_verb(verb_deps['verb'])], 'all_deps': [transform_words(verb_deps['deps'])], 'sources': [verb_deps['source']]}
+
+    for verb, value in deps_dict.items():
+        # print(' '*10, verb, value['verb'])
+        print(verb)
+        for verb, deps, source in zip(value['verb'], value['all_deps'], value['sources']):
+            print(verb, [(w['id'], w['type']) for w in deps], sep='\t')
+            print(source)
+            # train_and_predict(all_verbs_dependencies, ru_table, dictionary)
+        print()
 if __name__ == '__main__':
     main()
