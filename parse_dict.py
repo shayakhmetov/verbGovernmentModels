@@ -26,9 +26,9 @@ def parse_dict(file_name, suppress_errors=True):
             except ParseException as pe:
                 errors_count += 1
                 if not suppress_errors:
-                    print(pe.line)
-                    print(" "*(pe.column - 1) + "^")
-                    print(" ", pe, '\n')
+                    print(pe.line, file=sys.stderr)
+                    print(" "*(pe.column - 1) + "^", file=sys.stderr)
+                    print(" ", pe, '\n', file=sys.stderr)
                 print(line, file=error_file)
                 # for key, val in verb_dict.items():
                 #     print(key, val)
@@ -51,7 +51,7 @@ def parse_line(line):
     word_case = oneOf('Р Р2 Д В Т П П2')
     question = oneOf('где куда откуда')
 
-    prepositional_group = preposition + word_case + Optional(sem_classes)
+    prepositional_group = Group(preposition + word_case + Optional(sem_classes))
     # prepositional_group = Optional(preposition) + Optional(word_case) + Optional(sem_classes)
 
     c_description = delimitedList(prepositional_group, delim=',')
