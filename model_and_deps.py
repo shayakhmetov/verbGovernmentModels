@@ -4,6 +4,8 @@ import sys
 from add_ru_table import construct_ru_table
 from parse_dict import get_dictionary, print_model
 from get_dependencies_conll import get_dependencies
+import itertools
+import functools
 
 
 def evaluate_element(element, deps, mask):
@@ -66,7 +68,7 @@ def evaluate_expr(elementary_expr, deps, mask):
                 if current_res:
                     next_res = evaluate_expr(elementary_expr[i+1], deps, mask)
                     if next_res:
-                        current_res += next_res
+                        current_res = list(set(next_res + current_res))
                         mask = list(set(mask + current_res))
                 else:
                     return []
@@ -82,15 +84,23 @@ def evaluate_expr(elementary_expr, deps, mask):
 
 def evaluate_plus(exprs, deps):
     if len(exprs) == 1:
-        if len(exprs[0]) == len(deps):
+        if len(exprs[0][1]) == len(deps):
             return True
     else:
-        result = set()
-        for expr in exprs:
-            for index in expr:
-                result.add(index)
-        if len(result) == len(deps):
-            return True
+        for i, expr in enumerate(exprs):
+            for p in itertools.product([0, 1], repeat=len(exprs) - 1):
+                bit_mask = [item for item in p]
+                bit_mask.insert(i, 0)
+
+                mask = [e[1] for j, e in enumerate(exprs) if bit_mask[j] == 1]
+                evaluated_mask = []
+                for m in mask:
+                    for el in m:
+                        if el not in evaluated_mask:
+                            evaluated_mask.append(el)
+                computed_result = evaluate_expr(expr[0], deps, evaluated_mask)
+                if len(set((computed_result + evaluated_mask))) == len(deps):
+                    return True
     return False
 
 
@@ -110,7 +120,7 @@ def check_gov_model(verb_model, verb, deps):
                     exprs = []
                     for elementary_expr in gov_model['elements']:
                         if elementary_expr != '+':
-                            exprs.append(evaluate_expr(elementary_expr, deps, []))
+                            exprs.append((elementary_expr, evaluate_expr(elementary_expr, deps, [])))
                     if evaluate_plus(exprs, deps):
                         return i, j, k
     return None
