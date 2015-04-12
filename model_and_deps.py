@@ -16,12 +16,12 @@ def evaluate_element(element, deps, mask):
 
     if element[0] == 'INF':
         for i, w in enumerate(deps):
-            if i not in mask and w['type'] == 'V': #TODO infinitive
+            if i not in mask and w['type'] == 'V':
                 return [i]
 
     elif element[0] == 'DO:':
         for i, w in enumerate(deps):
-            if i not in mask and w['type'] not in 'VS' and (w['case'] == 'В' or w['case'] == 'Р')\
+            if i not in mask and w['type'] not in 'VS' and (w['case'] == 'В')\
                     and check_animate(element[2], w['animate']):#TODO here is check for 'Р' case
                 return [i]
 

@@ -1,28 +1,30 @@
 __author__ = 'rim'
 import sys
 
-denied_words = [".", "?", "!", "…", "iq", "что", '<unknown>']
+denied_names = [".", "?", "!", "…", "iq", '<unknown>']
 denied_cases = ['nominative', '*n', 'vocative', '-', '']
 
 
 def valid_verb(verb, ru_table_dict):
-    return verb[3] == 'V' and verb[2] not in denied_words and verb[5] in ru_table_dict
+    return verb[3] == 'V' and verb[2] not in denied_names and verb[5] in ru_table_dict
 
 
 def valid_word(word, ru_table_dict):
-    return word[2] not in denied_words and word[5] in ru_table_dict and ru_table_dict[word[5]][3] not in denied_cases
+    return word[3] not in 'VS' and word[5] in ru_table_dict and ru_table_dict[word[5]][3] not in denied_cases
 
 
 def valid_prep(prep, ru_table_dict):
-    return prep[2] not in denied_words and prep[5] in ru_table_dict
+    return prep[3] == 'S' and prep[2] not in denied_names and prep[1] not in denied_names and prep[5] in ru_table_dict
 
 
 def valid_inf(inf, ru_table_dict):
-    return inf[3] == 'V' and inf[2] not in denied_words and inf[5] in ru_table_dict and ru_table_dict[inf[5]][17] == 'infinitive'
+    return inf[3] == 'V' and inf[2] not in denied_names \
+           and inf[5] in ru_table_dict and ru_table_dict[inf[5]][17] == 'infinitive'
 
 
-def valid_verb_dep(word, verb):
-    deps = ["1-компл", "1-несобст-компл", "2-компл", "2-несобст-компл", "3-компл", "3-несобст-компл", "4-компл"]
+def valid_main_verb_dep(word, verb):
+    deps = ["1-компл", "1-несобст-компл", "2-компл", "2-несобст-компл", "3-компл", "3-несобст-компл",
+            "4-компл", "5-компл", "5-несобст-компл", "неакт-компл"]
     return int(word[6]) == int(verb[0]) and word[7] in deps
 
 
@@ -33,7 +35,7 @@ def valid_word_for_prep(word, prep, ru_table_dict):
 
 def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
     verbs_dependencies = []
-    # one_clause = list(clean_clause(one_clause, ru_table_dict))
+
     for word in one_clause:
         dependencies = []
         if word[2] in dictionary:
@@ -45,17 +47,21 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
         #     print('Not in a ru-table', word[5], file=sys.stderr)
 
         if valid_verb(word, ru_table_dict):
-            for depended_word in [w for w in one_clause if w != word]:
-                if valid_verb_dep(depended_word, word):
+            depended_words = [w for w in one_clause if w != word]
+            for i, depended_word in enumerate(depended_words):
+                if valid_main_verb_dep(depended_word, word):
                     if valid_word(depended_word, ru_table_dict):
                         dependencies.append(depended_word)
+
                     elif valid_prep(depended_word, ru_table_dict):
-                        for deep_depended_word in [w for w in one_clause if w != word and w != depended_word]:
+                        deeps = [w for w in depended_words if w != depended_word]
+                        for deep_depended_word in deeps:
                             if valid_word_for_prep(depended_word, deep_depended_word, ru_table_dict):
                                 dependencies.append(depended_word)
                                 if deep_depended_word not in dependencies:
                                     dependencies.append(deep_depended_word)
                                 break
+
                     elif valid_inf(depended_word, ru_table_dict):
                         dependencies.append(depended_word)
 
