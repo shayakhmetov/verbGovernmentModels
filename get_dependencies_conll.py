@@ -32,8 +32,8 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
             for depended_word in one_clause:
                 if word != depended_word and depended_word[5] in ru_table_dict and int(depended_word[6]) == int(word[0]) \
                         and abs(int(word[0]) - int(depended_word[0]) < 4)\
-                        and depended_word[2] not in denied_words and depended_word[4] in 'NSVP':
-                    if not (depended_word[4] in 'NP' and ru_table_dict[depended_word[5]][3] in denied_cases)\
+                        and depended_word[2] not in denied_words and depended_word[4] in 'NSVPA':
+                    if not (depended_word[4] not in 'VS' and ru_table_dict[depended_word[5]][3] in denied_cases)\
                             and not (depended_word[4] == 'V' and depended_word[1] != depended_word[2]):
                         if depended_word[2] == '<unknown>':
                             depended_word[2] = depended_word[1]
@@ -44,7 +44,7 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
                                         and abs(int(deep_depended_word[0]) - int(depended_word[0]) < 3) and deep_depended_word[5] in ru_table_dict \
                                         and int(deep_depended_word[6]) == int(depended_word[0]) and deep_depended_word[4] in 'NMPA' \
                                         and deep_depended_word[2] not in denied_words:
-                                    if not (deep_depended_word[4] in 'NMPA' and ru_table_dict[deep_depended_word[5]][3] in denied_cases):
+                                    if not (deep_depended_word[4] not in 'VS' and ru_table_dict[deep_depended_word[5]][3] in denied_cases):
                                         if deep_depended_word[2] == '<unknown>':
                                             deep_depended_word[2] = deep_depended_word[1]
                                         dependencies.append(deep_depended_word)

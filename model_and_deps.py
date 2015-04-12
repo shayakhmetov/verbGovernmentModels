@@ -143,7 +143,7 @@ def check_model(verb_model, verb_deps):
 def main():
     ru_table_filename = 'ru-table.tab'
 
-    dictionary = get_dictionary()
+    dictionary = get_dictionary(pickled=True)
     ru_table = construct_ru_table(ru_table_filename)
     ru_table_dict = ru_table['dict']
 
@@ -198,7 +198,7 @@ def main():
     for verb_name, value in known.items():
         if check_model(dictionary[verb_name]['model'], value):
             i += 1
-    print("only %f percent is right" % (100*i/len(known)), file=sys.stderr)
+    print("only %f percent is right. " % (100*i/len(known)), i, 'of', len(known), file=sys.stderr)
 
 if __name__ == '__main__':
     main()

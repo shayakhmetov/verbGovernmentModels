@@ -3,6 +3,7 @@ __author__ = 'rim'
 from pyparsing import Word, Optional, Group, Literal, ParseException, OneOrMore, Forward, delimitedList, oneOf
 import pickle
 import sys
+import copy
 
 
 rus_alphas = 'ЁЙЦУКЕНГШЩЗХЪФЫВАПРОЛДЖЭЯЧСМИТЬБЮ'
@@ -128,24 +129,109 @@ def print_model(model):
                     else:
                         print(' '*14, elementary_expr)
 
-def get_dictionary():
-    print('Parsing dictionary...\n', file=sys.stderr)
-    # filename = 'temp.txt'
-    # filename = 'dict_cleaned.txt'
-    filename = 'dict.txt'
-    dict_res, err_number = parse_dict(filename, suppress_errors=True)
-    print('\nParsing completed!\n', file=sys.stderr)
 
-    # pickled_filename = 'pickled_dict'
-    # args = dict_res.__getnewargs__()
-    # pickle.dump(dict_res, open(pickled_filename, 'wb'))
-    # dict_res = pickle.load(open(pickled_filename, 'rb'), args)
-    #
-    # for key, val in dict_res.items():
-    #     print(key, val['source'])
-    #     print_model(val['model'])
+def create_pickling_element(elementary_expr):
+    if elementary_expr[0] not in ['DO:', 'A:', 'C:', 'INF']:
+        new_elements = []
+        for element in elementary_expr:
+            if element == '&&' or element == '||':
+                new_elements.append(copy.copy(element))
+            else:
+                new_elements.append(create_pickling_element(element))
+        return new_elements
+    else:
+        new_element = []
+        new_element.append(copy.copy(elementary_expr[0]))
 
-    print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number, file=sys.stderr)
+        def create_sem_classes(sem_classes):
+            new_sem_classes = []
+            for sem in sem_classes:
+                if sem:
+                    new_sem_classes.append(copy.copy(sem))
+            return new_sem_classes
+
+        if new_element[0] == 'INF':
+            return new_element
+        elif new_element[0] == 'DO:':
+            new_element.append(copy.copy(elementary_expr[1]))
+            new_element.append(copy.copy(elementary_expr[2]))
+            new_element.append(create_sem_classes(elementary_expr[3]))
+        elif new_element[0] == 'C:':
+            new_element.append(copy.copy(elementary_expr[1]))
+            new_c_descriptions = []
+            for item in elementary_expr[2]:
+                new_item = []
+                for i, el in enumerate(item):
+                    if i == len(item) - 1:
+                        new_item.append(create_sem_classes(el))
+                    else:
+                        new_item.append(copy.copy(el))
+                new_c_descriptions.append(new_item)
+            new_element.append(new_c_descriptions)
+        elif new_element[0] == 'A:':
+            if len(elementary_expr) == 5:
+                new_element.append(copy.copy(elementary_expr[1]))
+                new_element.append(copy.copy(elementary_expr[2]))
+                new_element.append(copy.copy(elementary_expr[3]))
+                new_element.append(create_sem_classes(elementary_expr[4]))
+            elif len(elementary_expr) == 4:
+                new_element.append(copy.copy(elementary_expr[1]))
+                new_element.append(copy.copy(elementary_expr[2]))
+                new_element.append(create_sem_classes(elementary_expr[3]))
+        return new_element
+
+
+def create_pickling_model(model):
+    new_model = []
+    for omonim in model:
+        new_omonim = {'syntax_roles': [], 'verb_aspect': copy.copy(omonim['verb_aspect'])}
+        for syntax_role in omonim['syntax_roles']:
+            new_syntax_role = {'transitive': copy.copy(syntax_role['transitive']), 'gov_models': []}
+            for gov_model in syntax_role['gov_models']:
+                new_gov_model = {'elements': []}
+                for elementary_expr in gov_model['elements']:
+                    if elementary_expr != '+':
+                        new_gov_model['elements'].append(create_pickling_element(elementary_expr))
+                    else:
+                        new_gov_model['elements'].append(copy.copy(elementary_expr))
+
+                new_syntax_role['gov_models'].append(new_gov_model)
+            new_omonim['syntax_roles'].append(new_syntax_role)
+        new_model.append(new_omonim)
+    return new_model
+
+
+def create_pickling_dict(dict_res):
+    new_dict = {}
+    for key, value in dict_res.items():
+        new_dict[key] = {'id': copy.copy(value['id']), 'source': copy.copy(value['source'])}
+        new_dict[key]['model'] = create_pickling_model(value['model'])
+    return new_dict
+
+
+def get_dictionary(pickled=False):
+    pickled_filename = 'pickled_dict'
+    if pickled:
+        print('Loading dictionary from', pickled_filename, '...', file=sys.stderr)
+        dict_res = pickle.load(open(pickled_filename, 'rb'))
+    else:
+        print('Parsing dictionary...', file=sys.stderr)
+        # filename = 'temp.txt'
+        # filename = 'dict_cleaned.txt'
+        filename = 'dict.txt'
+        dict_res, err_number = parse_dict(filename, suppress_errors=True)
+        print('\nParsing completed!\n', file=sys.stderr)
+        dict_res = create_pickling_dict(dict_res)
+
+        print('Dumping dictionary...', file=sys.stderr)
+        pickle.dump(dict_res, open(pickled_filename, 'wb'))
+        dict_res = pickle.load(open(pickled_filename, 'rb'))
+
+        # for key, val in dict_res.items():
+        #     print(key, val['source'])
+        #     print_model(val['model'])
+
+        print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number, file=sys.stderr)
 
     return dict_res
 
