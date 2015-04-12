@@ -8,7 +8,7 @@ from get_dependencies_conll import get_dependencies
 
 def evaluate_element(element, deps, mask):
     def check_animate(from_model, from_deps):
-        if from_model == 'о/но':
+        if from_model == 'о/но' or from_deps == 'о/но':
             return True
         else:
             return from_deps == from_model
@@ -38,7 +38,7 @@ def evaluate_element(element, deps, mask):
     elif element[0] == 'A:':
         if len(element) == 5:
             nouns = [i for i, w in enumerate(deps)
-                     if w['type'] not in 'VS' and w['case'] == element[2] and check_animate(element[3], w['animate'])]
+                     if w['type'] not in 'VS' and w['case'] == element[2] and check_animate(element[3], w['animate'])] #TODO фиксации - Р вместо П
             prepositions = [i for i, w in enumerate(deps)
                             if w['type'] == 'S' and w['name'] == element[1]]
             for prep in prepositions:
@@ -153,7 +153,7 @@ def main():
 
     def transform_words(words):
         transform_case = {'accusative': 'В', 'dative': 'Д', 'genitive': 'Р', 'instrumental': 'Т', 'locative': 'П'}
-        transform_animate = {'yes': 'о', 'no': 'но', '-': 'но'} #TODO  '-': 'о/но'??
+        transform_animate = {'yes': 'о', 'no': 'но', '-': 'о/но', '': 'о/но'} #TODO  '-': 'о/но'??
         result = []
         for word in words:
             temp = {'name': word[2], 'type': word[4], 'id': int(word[0])}
