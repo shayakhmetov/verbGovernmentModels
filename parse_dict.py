@@ -135,13 +135,18 @@ def get_dictionary():
     filename = 'dict.txt'
     dict_res, err_number = parse_dict(filename, suppress_errors=True)
     print('\nParsing completed!\n', file=sys.stderr)
+
     # pickled_filename = 'pickled_dict'
+    # args = dict_res.__getnewargs__()
     # pickle.dump(dict_res, open(pickled_filename, 'wb'))
-    # dict_res = pickle.load(open(pickled_filename, 'rb'))
+    # dict_res = pickle.load(open(pickled_filename, 'rb'), args)
+    #
     # for key, val in dict_res.items():
     #     print(key, val['source'])
     #     print_model(val['model'])
+
     print('\nParsing results:\nTotal ', len(dict_res) + err_number, '\nParsed ', len(dict_res), '\nNotParsed ', err_number, file=sys.stderr)
+
     return dict_res
 
 

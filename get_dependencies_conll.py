@@ -4,9 +4,13 @@ import sys
 number_of_new_examples, number_of_good_examples = 1000000, 1000000
 n_of_new_verbs, n_of_good_verbs = 0, 0
 
+def clean_clause(clause):
+    return [w for w in clause if w[7] not in ['количест', 'опред', 'PUNC']]
+
 
 def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
     verbs_dependencies = []
+    one_clause = clean_clause(one_clause)
     for word in one_clause:
         dependencies = []
         if word[2] in dictionary:
@@ -14,16 +18,26 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
         else:
             known = False
         global n_of_good_verbs, n_of_new_verbs
-        if word[3] == 'V' and word[2] != '<unknown>' and word[5] in ru_table_dict and int(word[6]) == 0 \
-                and ((known and n_of_good_verbs < number_of_good_examples) or (not known and n_of_new_verbs < number_of_new_examples)):
+        if word[3] == 'V' and word[2] != '<unknown>' and word[5] in ru_table_dict:
             for depended_word in one_clause:
-                if depended_word[6] == word[0] and depended_word[4] in 'NSV' and depended_word[5] not in ru_table_dict:
-                    dependencies = []
-                    break
-                if word != depended_word and depended_word[5] in ru_table_dict and depended_word[6] == word[0]\
-                        and depended_word[2] not in [".", "?", "!", "iq", "<unknown>"] and depended_word[4] in 'NSV':
-                    if not (depended_word[4] == 'N' and ru_table_dict[depended_word[5]][3] in ['nominative', '*n', 'vocative']):
+                if word != depended_word and depended_word[5] in ru_table_dict and int(depended_word[6]) == int(word[0]) \
+                        and abs(int(word[0]) - int(depended_word[0]) < 5)\
+                        and depended_word[2] not in [".", "?", "!", "…", "iq"] and depended_word[4] in 'NSVP':
+                    if not (depended_word[4] == 'N' and ru_table_dict[depended_word[5]][3] in ['nominative', '*n', 'vocative'])\
+                            and not (depended_word[4] == 'V' and depended_word[1] != depended_word[2]):
+                        if depended_word[2] == '<unknown>':
+                            depended_word[2] = depended_word[1]
                         dependencies.append(depended_word)
+                        if depended_word[4] == 'S':
+                            for deep_depended_word in one_clause:
+                                if word != deep_depended_word and depended_word != deep_depended_word \
+                                        and abs(int(deep_depended_word[0]) - int(depended_word[0]) < 3) and deep_depended_word[5] in ru_table_dict \
+                                        and int(deep_depended_word[6]) == int(depended_word[0]) and deep_depended_word[4] in 'NMP' \
+                                        and deep_depended_word[2] not in [".", "?", "!", "…", "iq"]:
+                                    if not (deep_depended_word[4] == 'N' and ru_table_dict[deep_depended_word[5]][3] in ['nominative', '*n', 'vocative']):
+                                        if deep_depended_word[2] == '<unknown>':
+                                            deep_depended_word[2] = deep_depended_word[1]
+                                        dependencies.append(deep_depended_word)
         if dependencies:
             if not known:
                 n_of_new_verbs += 1
@@ -31,6 +45,7 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
                 n_of_good_verbs += 1
             dependencies = sorted(dependencies, key=lambda w: int(w[0]))
             verbs_dependencies.append({'verb': word, 'deps': dependencies, 'source': ' '.join([w[0] + '[' + w[1] + ']' for w in one_clause]), 'known': known})
+
     return verbs_dependencies
 
 
