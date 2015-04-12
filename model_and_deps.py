@@ -20,7 +20,7 @@ def evaluate_element(element, deps, mask):
 
     elif element[0] == 'DO:':
         for i, w in enumerate(deps):
-            if i not in mask and w['type'] == 'N' and w['case'] == 'В' and check_animate(element[2], w['animate']):
+            if i not in mask and w['type'] not in 'VS' and w['case'] == 'В' and check_animate(element[2], w['animate']):
                 return [i]
 
     elif element[0] == 'C:':
@@ -28,17 +28,17 @@ def evaluate_element(element, deps, mask):
                         if i not in mask and w['type'] == 'S' and w['name'] in [e[0] for e in element[2]]]
 
         nouns = [i for i, w in enumerate(deps)
-                 if i not in mask and w['type'] == 'N' and w['case'] in [e[1] for e in element[2]]]
+                 if i not in mask and w['type'] not in 'VS' and w['case'] in [e[1] for e in element[2]]]
         for prep, case in [(e[0], e[1]) for e in element[2]]:
             for noun_i in nouns:
                 for prep_i in prepositions:
-                    if prep_i < noun_i and deps[noun_i]['case'] == case and deps[prep_i]['name'] == case:
+                    if prep_i < noun_i and deps[noun_i]['case'] == case and deps[prep_i]['name'] == prep:
                         return [prep_i, noun_i]
 
     elif element[0] == 'A:':
         if len(element) == 5:
             nouns = [i for i, w in enumerate(deps)
-                     if w['type'] == 'N' and w['case'] == element[2] and check_animate(element[3], w['animate'])]
+                     if w['type'] not in 'VS' and w['case'] == element[2] and check_animate(element[3], w['animate'])]
             prepositions = [i for i, w in enumerate(deps)
                             if w['type'] == 'S' and w['name'] == element[1]]
             for prep in prepositions:
@@ -47,7 +47,7 @@ def evaluate_element(element, deps, mask):
                         return [prep, noun]
         elif len(element) == 4:
             for i, w in enumerate(deps):
-                if i not in mask and w['type'] == 'N' and w['case'] == element[1] and check_animate(element[2], w['animate']):
+                if i not in mask and w['type'] not in 'VS' and w['case'] == element[1] and check_animate(element[2], w['animate']):
                     return [i]
         else:
             assert False
@@ -122,7 +122,7 @@ def check_model(verb_model, verb_deps):
         matched = check_gov_model(verb_model, verb, deps)
         if not matched:
             def local_print(d):
-                if d['type'] == 'N':
+                if d['type'] not in 'VS':
                     return "%d %s %s %s" % (d['id'], d['type'], d['case'], d['animate'])
                 elif d['type'] == 'S':
                     return "%d %s %s" % (d['id'], d['type'], d['name'])
@@ -153,11 +153,11 @@ def main():
 
     def transform_words(words):
         transform_case = {'accusative': 'В', 'dative': 'Д', 'genitive': 'Р', 'instrumental': 'Т', 'locative': 'П'}
-        transform_animate = {'yes': 'о', 'no': 'но'}#  '': 'о/но'}
+        transform_animate = {'yes': 'о', 'no': 'но', '-': 'но'} #TODO  '-': 'о/но'??
         result = []
         for word in words:
             temp = {'name': word[2], 'type': word[4], 'id': int(word[0])}
-            if temp['type'] == 'N':
+            if temp['type'] not in 'VS':
                 temp['case'] = transform_case[ru_table_dict[word[5]][3]]
                 temp['animate'] = transform_animate[ru_table_dict[word[5]][0]]
             result.append(temp)

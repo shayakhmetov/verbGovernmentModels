@@ -23,7 +23,7 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
                 if word != depended_word and depended_word[5] in ru_table_dict and int(depended_word[6]) == int(word[0]) \
                         and abs(int(word[0]) - int(depended_word[0]) < 5)\
                         and depended_word[2] not in [".", "?", "!", "…", "iq"] and depended_word[4] in 'NSVP':
-                    if not (depended_word[4] == 'N' and ru_table_dict[depended_word[5]][3] in ['nominative', '*n', 'vocative'])\
+                    if not (depended_word[4] in 'NP' and ru_table_dict[depended_word[5]][3] in ['nominative', '*n', 'vocative', '-'])\
                             and not (depended_word[4] == 'V' and depended_word[1] != depended_word[2]):
                         if depended_word[2] == '<unknown>':
                             depended_word[2] = depended_word[1]
@@ -34,7 +34,7 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
                                         and abs(int(deep_depended_word[0]) - int(depended_word[0]) < 3) and deep_depended_word[5] in ru_table_dict \
                                         and int(deep_depended_word[6]) == int(depended_word[0]) and deep_depended_word[4] in 'NMP' \
                                         and deep_depended_word[2] not in [".", "?", "!", "…", "iq"]:
-                                    if not (deep_depended_word[4] == 'N' and ru_table_dict[deep_depended_word[5]][3] in ['nominative', '*n', 'vocative']):
+                                    if not (deep_depended_word[4] in 'NMP' and ru_table_dict[deep_depended_word[5]][3] in ['nominative', '*n', 'vocative', '-']):
                                         if deep_depended_word[2] == '<unknown>':
                                             deep_depended_word[2] = deep_depended_word[1]
                                         dependencies.append(deep_depended_word)
