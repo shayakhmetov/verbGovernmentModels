@@ -93,41 +93,41 @@ def parse_line(line):
     return dict_element.parseString(line)
 
 
-def elements_print(intend, elementary_expr):
+def elements_print(intend, elementary_expr, file=sys.stdout):
         if elementary_expr[0] not in ['DO:', 'A:', 'C:', 'INF']:
             for element in elementary_expr:
                 if element == '&&' or element == '||':
-                    print(' '*(intend+4), element)
+                    print(' '*(intend+4), element, file=file)
                 elif element[0] in ['DO:', 'A:', 'C:', 'INF']:
-                    print(' '*(intend+6), element)
+                    print(' '*(intend+6), element, file=file)
                 else:
                     if len(element) > 1:
-                        elements_print((intend+4), element)
+                        elements_print((intend+4), element, file=file)
                     else:
-                        elements_print(intend, element)
+                        elements_print(intend, element, file=file)
         else:
-            print(' '*(intend+2), elementary_expr)
+            print(' '*(intend+2), elementary_expr, file=file)
 
 
-def print_model(model):
-    print(' '*2, 'omonims[]:')
+def print_model(model, file=sys.stdout):
+    print(' '*2, 'omonims[]:', file=file)
     for i, omonim in enumerate(model):
-        print()
-        print(' '*4, i+1, 'omonim')
-        print(' '*6, 'verb_aspect =', omonim['verb_aspect'])
-        print(' '*6, 'syntax_roles[]:')
+        print(file=file)
+        print(' '*4, i+1, 'omonim', file=file)
+        print(' '*6, 'verb_aspect =', omonim['verb_aspect'], file=file)
+        print(' '*6, 'syntax_roles[]:', file=file)
         for j, syntax_role in enumerate(omonim['syntax_roles']):
-            print(' '*8, j+1, 'syntax_role')
-            print(' '*10, 'transitive =', syntax_role['transitive'])
-            print(' '*10, 'gov_models[]:')
+            print(' '*8, j+1, 'syntax_role', file=file)
+            print(' '*10, 'transitive =', syntax_role['transitive'], file=file)
+            print(' '*10, 'gov_models[]:', file=file)
             for k, gov_model in enumerate(syntax_role['gov_models']):
-                print(' '*12, k+1, 'gov_model')
-                print(' '*12, 'elementary_exprs[]:')
+                print(' '*12, k+1, 'gov_model', file=file)
+                print(' '*12, 'elementary_exprs[]:', file=file)
                 for elementary_expr in gov_model['elements']:
                     if elementary_expr != '+':
-                        elements_print(14, elementary_expr)
+                        elements_print(14, elementary_expr, file=file)
                     else:
-                        print(' '*14, elementary_expr)
+                        print(' '*14, elementary_expr, file=file)
 
 
 def create_pickling_element(elementary_expr):

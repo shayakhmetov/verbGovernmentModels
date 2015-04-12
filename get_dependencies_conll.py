@@ -3,10 +3,12 @@ import sys
 
 denied_names = [".", "?", "!", "…", "iq", '<unknown>']
 denied_cases = ['nominative', '*n', 'vocative', '-', '']
+denied_verb_forms = ['participle', 'gerund', 'imperative']
 
 
 def valid_verb(verb, ru_table_dict):
-    return verb[3] == 'V' and verb[2] not in denied_names and verb[5] in ru_table_dict
+    return verb[3] == 'V' and verb[2] not in denied_names and verb[5] in ru_table_dict \
+        and ru_table_dict[verb[5]][17] not in denied_verb_forms
 
 
 def valid_word(word, ru_table_dict):
@@ -19,12 +21,12 @@ def valid_prep(prep, ru_table_dict):
 
 def valid_inf(inf, ru_table_dict):
     return inf[3] == 'V' and inf[2] not in denied_names \
-           and inf[5] in ru_table_dict and ru_table_dict[inf[5]][17] == 'infinitive'
+        and inf[5] in ru_table_dict and ru_table_dict[inf[5]][17] == 'infinitive'
 
 
 def valid_main_verb_dep(word, verb):
-    deps = ["1-компл", "1-несобст-компл", "2-компл", "2-несобст-компл", "3-компл", "3-несобст-компл",
-            "4-компл", "5-компл", "5-несобст-компл", "неакт-компл"]
+    deps = ["1-компл", "2-компл", "3-компл", "4-компл", "5-компл",
+            "1-несобст-компл", "2-несобст-компл", "3-несобст-компл", "неакт-компл"]
     return int(word[6]) == int(verb[0]) and word[7] in deps
 
 

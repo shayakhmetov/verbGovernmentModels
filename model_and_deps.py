@@ -139,6 +139,8 @@ def check_gov_model(verb_model, verb, deps):
 
 def check_model(verb_model, verb_deps):
     result = []
+    everything_matched = True
+    number_of_matched = 0
     for verb, deps, source in zip(verb_deps['verb'], verb_deps['all_deps'], verb_deps['sources']):
         matched = check_gov_model(verb_model, verb, deps)
         if not matched:
@@ -155,13 +157,18 @@ def check_model(verb_model, verb_deps):
             print(source, end='\n\n')
             print_model(verb_model)
             print()
-            return None
+            everything_matched = False
         else:
+            number_of_matched += 1
             result.append(matched)
-    return result
+    if everything_matched:
+        return result, 1
+    else:
+        return [], number_of_matched/len(verb_deps['verb'])
 
 
 def main():
+    print(file=sys.stderr)
     ru_table_filename = 'ru-table.tab'
 
     dictionary = get_dictionary(pickled=True)
@@ -185,7 +192,7 @@ def main():
         return result
 
     def transform_verb(verb_word):
-        transform_aspect = {'progressive': 'нсв', 'perfective': 'св'}#'': 'св/нсв'}
+        transform_aspect = {'progressive': 'нсв', 'perfective': 'св', 'biaspectual': 'св/нсв'}
         return {'aspect': transform_aspect[ru_table_dict[verb_word[5]][1]], 'id': int(verb_word[0]), 'name': verb_word[2]}
 
     i = 0
@@ -215,18 +222,34 @@ def main():
     #     print("verb_deps.txt created.", file=sys.stderr)
 
     i = 0
+    deep_i = 0.
     known = {verb_name: value for verb_name, value in deps_dict.items() if value['known']}
     for verb_name, value in known.items():
-        if check_model(dictionary[verb_name]['model'], value):
+        result, percent = check_model(dictionary[verb_name]['model'], value)
+        if result:
             i += 1
+        deep_i += percent
 
-    # for verb_name, value in known.items():
-    #     for some_verb in dictionary:
-    #         if check_model(dictionary[some_verb]['model'], value):
+
+
+    # with open('compared_models.txt', 'w') as compared_models:
+    #     for verb_name, value in known.items():
+    #         if check_model(dictionary[verb_name]['model'], value):
     #             i += 1
-    #             break
+    #         else:
+    #             for some_verb in dictionary:
+    #                 if some_verb != verb_name and check_model(dictionary[some_verb]['model'], value):
+    #                     i += 1
+    #                     print('TWO MODELS:', file=compared_models)
+    #                     print('MODEL THAT DID NOT MATCH:', verb_name, file=compared_models)
+    #                     print_model(dictionary[verb_name]['model'], file=compared_models)
+    #                     print('MODEL THAT MATCHED:', some_verb, file=compared_models)
+    #                     print_model(dictionary[some_verb]['model'], file=compared_models)
+    #                     print(file=compared_models)
+    #                     break
 
-    print("%.2f" % (100*i/len(known)), "% of known verbs is right.", i, 'of', len(known), file=sys.stderr)
+    print("%.2f" % (100*i/len(known)), "% of known verbs matched.", i, 'of', len(known), file=sys.stderr)
+    print("%.2f" % (100*deep_i/len(known)), "% of all known verbs' occurences matched.", file=sys.stderr)
 
 if __name__ == '__main__':
     main()
