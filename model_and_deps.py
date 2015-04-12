@@ -5,7 +5,6 @@ from add_ru_table import construct_ru_table
 from parse_dict import get_dictionary, print_model
 from get_dependencies_conll import get_dependencies
 import itertools
-import functools
 
 
 def evaluate_element(element, deps, mask):
@@ -22,7 +21,8 @@ def evaluate_element(element, deps, mask):
 
     elif element[0] == 'DO:':
         for i, w in enumerate(deps):
-            if i not in mask and w['type'] not in 'VS' and w['case'] == 'В' and check_animate(element[2], w['animate']):
+            if i not in mask and w['type'] not in 'VS' and (w['case'] == 'В' or w['case'] == 'Р')\
+                    and check_animate(element[2], w['animate']):#TODO here is check for 'Р' case
                 return [i]
 
     elif element[0] == 'C:':
@@ -69,7 +69,9 @@ def evaluate_expr(elementary_expr, deps, mask):
                     next_res = evaluate_expr(elementary_expr[i+1], deps, mask)
                     if next_res:
                         current_res = list(set(next_res + current_res))
-                        mask = list(set(mask + current_res))
+                        mask = list(set(mask + next_res))
+                    else:
+                        return current_res
                 else:
                     return []
             elif elementary_expr[i] == '||':
@@ -83,6 +85,14 @@ def evaluate_expr(elementary_expr, deps, mask):
 
 
 def evaluate_plus(exprs, deps):
+    def weak_check(result, deps):
+        if len(result) == len(deps) - 2 :
+            two_elements = [w for i, w in enumerate(deps) if i not in result]
+            assert len(two_elements) == 2
+            if two_elements[0]['type'] == 'S' and two_elements[0]['name'] == 'в' and two_elements[1]['type'] == 'N'\
+                    and two_elements[1]['case'] == 'П' and two_elements[1]['animate']:
+                return True
+
     if len(exprs) == 1:
         if len(exprs[0][1]) == len(deps):
             return True
@@ -101,6 +111,7 @@ def evaluate_plus(exprs, deps):
                 computed_result = evaluate_expr(expr[0], deps, evaluated_mask)
                 if len(set((computed_result + evaluated_mask))) == len(deps):
                     return True
+
     return False
 
 
@@ -208,7 +219,14 @@ def main():
     for verb_name, value in known.items():
         if check_model(dictionary[verb_name]['model'], value):
             i += 1
-    print("only %f percent is right. " % (100*i/len(known)), i, 'of', len(known), file=sys.stderr)
+
+    # for verb_name, value in known.items():
+    #     for some_verb in dictionary:
+    #         if check_model(dictionary[some_verb]['model'], value):
+    #             i += 1
+    #             break
+
+    print("%.2f" % (100*i/len(known)), "% of known verbs is right.", i, 'of', len(known), file=sys.stderr)
 
 if __name__ == '__main__':
     main()
