@@ -85,13 +85,6 @@ def evaluate_expr(elementary_expr, deps, mask):
 
 
 def evaluate_plus(exprs, deps):
-    def weak_check(result, deps):
-        if len(result) == len(deps) - 2 :
-            two_elements = [w for i, w in enumerate(deps) if i not in result]
-            assert len(two_elements) == 2
-            if two_elements[0]['type'] == 'S' and two_elements[0]['name'] == 'в' and two_elements[1]['type'] == 'N'\
-                    and two_elements[1]['case'] == 'П' and two_elements[1]['animate']:
-                return True
 
     if len(exprs) == 1:
         if len(exprs[0][1]) == len(deps):
@@ -117,7 +110,7 @@ def evaluate_plus(exprs, deps):
 
 def check_gov_model(verb_model, verb, deps):
     def check_aspect(from_model, from_deps):
-        if from_model == 'п/нп' or from_model == 'возвр': #TODO возвр и п/нп
+        if from_model == 'св/нсв' or from_deps == 'св/нсв':
             return True
         else:
             return from_model == from_deps
@@ -230,7 +223,7 @@ def main():
     known = {verb_name: value for verb_name, value in deps_dict.items() if value['known']}
 
     for verb_name, value in known.items():
-        result, percent = check_model(dictionary[verb_name]['model'], value, print_not_matched=True)
+        result, percent = check_model(dictionary[verb_name]['model'], value, print_not_matched=False)
         if result:
             i += 1
         deep_i += percent
