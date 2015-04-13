@@ -1,13 +1,13 @@
 __author__ = 'rim'
 import sys
 
-denied_names = [".", "?", "!", "…", "iq", '<unknown>']
+denied_vs = [".", "?", "!", "…", "iq", '<unknown>', 'её']
 denied_cases = ['nominative', '*n', 'vocative', '-', '']
 denied_verb_forms = ['participle', 'gerund', 'imperative']
 
 
 def valid_verb(verb, ru_table_dict):
-    return verb[3] == 'V' and verb[2] not in denied_names and verb[5] in ru_table_dict \
+    return verb[3] == 'V' and verb[2] not in denied_vs and verb[5] in ru_table_dict \
         and ru_table_dict[verb[5]][17] not in denied_verb_forms
 
 
@@ -16,18 +16,19 @@ def valid_word(word, ru_table_dict):
 
 
 def valid_prep(prep, ru_table_dict):
-    return prep[3] == 'S' and prep[2] not in denied_names and prep[1] not in denied_names and prep[5] in ru_table_dict
+    return prep[3] == 'S' and prep[2] not in denied_vs and prep[1] not in denied_vs and prep[5] in ru_table_dict
 
 
 def valid_inf(inf, ru_table_dict):
-    return inf[3] == 'V' and inf[2] not in denied_names \
+    return inf[3] == 'V' and inf[2] not in denied_vs \
         and inf[5] in ru_table_dict and ru_table_dict[inf[5]][17] == 'infinitive'
 
 
 def valid_main_verb_dep(word, verb):
-    deps = ["1-компл", "2-компл", "3-компл", "4-компл", "5-компл",
+    main_deps = ["1-компл", "2-компл", "3-компл", "4-компл", "5-компл",
             "1-несобст-компл", "2-несобст-компл", "3-несобст-компл", "неакт-компл"]
-    return int(word[6]) == int(verb[0]) and word[7] in deps
+    noun_deps = ["предик"]
+    return int(word[6]) == int(verb[0]) and (word[7] in main_deps or (word[3] == 'N' and word[7] in noun_deps))
 
 
 def valid_word_for_prep(word, prep, ru_table_dict):
@@ -67,7 +68,7 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
                     elif valid_inf(depended_word, ru_table_dict):
                         dependencies.append(depended_word)
 
-        if dependencies:
+        if dependencies and not (len(dependencies) == 1 and dependencies[0][3] == 'S'):
             dependencies = sorted(dependencies, key=lambda w: int(w[0]))
             verbs_dependencies.append({'verb': word, 'deps': dependencies, 'source': ' '.join([w[0] + '[' + w[1] + ']' for w in one_clause]), 'known': known})
 
