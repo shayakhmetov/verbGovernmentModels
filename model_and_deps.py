@@ -169,8 +169,8 @@ def check_model(verb_model, verb_deps, print_not_matched=False):
 
 
 def main():
-    big_checking = True
-    unknown_checking = True
+    big_checking = False
+    unknown_checking = False
 
     print(file=sys.stderr)
     ru_table_filename = 'ru-table.tab'
