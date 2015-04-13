@@ -167,8 +167,8 @@ def check_model(verb_model, verb_deps, print_not_matched=False, check_all=False)
 
 
 def main():
-    big_checking = True
-    unknown_checking = True
+    big_checking = False
+    unknown_checking = False
 
     print(file=sys.stderr)
     ru_table_filename = 'ru-table.tab'
@@ -228,23 +228,24 @@ def main():
 
     if big_checking:
         print('\nRunning big checking...', file=sys.stderr)
-        with open('compared_models.txt', 'w') as compared_models:
-            accumulated_i = 0
+        with open('compared_models.txt', 'w') as compared_models, open('temp_not_matched_verbs', 'w') as not_matched_file:
+            i = 0
             accumulated_deep_i = 0.
             for verb_name, value in known.items():
                 deep_i = 0.
-                i = 0
-                result, percent = check_model(dictionary[verb_name]['model'], value, check_all=True)
+                result, percent = check_model(dictionary[verb_name]['model'], value, check_all=False)
                 if result:
-                    i = 1
+                    i += 1
+                    deep_i = 1
                 else:
                     if percent > deep_i:
                         deep_i = percent
                     for some_verb in dictionary:
                         if some_verb != verb_name:
-                            result, percent = check_model(dictionary[some_verb]['model'], value, check_all=True)
+                            result, percent = check_model(dictionary[some_verb]['model'], value, check_all=False)
                             if result:
-                                i = 1
+                                i += 1
+                                deep_i = 1
                                 print('TWO MODELS:', file=compared_models)
                                 print('MODEL THAT DID NOT MATCH:', verb_name, file=compared_models)
                                 print_model(dictionary[verb_name]['model'], file=compared_models)
@@ -255,8 +256,9 @@ def main():
                             elif percent > deep_i:
                                  deep_i = percent
                 assert 0 <= deep_i <= 1
-                accumulated_deep_i += max([i, deep_i])
-                accumulated_i += i
+                accumulated_deep_i += deep_i
+                if deep_i == 0:
+                    print(verb_name, file=not_matched_file)
 
             print("BIG_CKECKING: %.2f" % (100*i/len(known)), "% of known verbs matched with one of GM in dictionary.", i, 'of', len(known), file=sys.stderr)
             print("BIG_CKECKING: %.2f" % (100*accumulated_deep_i/len(known)), "% of known verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
@@ -266,15 +268,15 @@ def main():
         print('\nRunning unknown checking...', file=sys.stderr)
         unknown = {verb_name: value for verb_name, value in deps_dict.items() if not value['known']}
         with open('gov_model_unknown.txt', 'w') as file_unknown_verbs:
-            accumulated_i = 0
+            i = 0
             accumulated_deep_i = 0.
             for verb_name, value in unknown.items():
                 deep_i = 0.
-                i = 0
                 for some_verb in dictionary:
-                    result, percent = check_model(dictionary[some_verb]['model'], value, check_all=True)
+                    result, percent = check_model(dictionary[some_verb]['model'], value, check_all=False)
                     if result:
-                        i = 1
+                        i += 1
+                        deep_i = 1
                         print(verb_name, file=file_unknown_verbs)
                         print_model(dictionary[some_verb]['model'], file=file_unknown_verbs)
                         print(file=file_unknown_verbs)
@@ -282,9 +284,8 @@ def main():
                     elif percent > deep_i:
                          deep_i = percent
                 assert 0 <= deep_i <= 1
-                accumulated_deep_i += max([i, deep_i])
-                accumulated_i += i
-            print(accumulated_deep_i, 'of', len(unknown), file=sys.stderr)
+                accumulated_deep_i += deep_i
+
             print("UNKNOWN CHECKING: %.2f" % (100*i/len(unknown)), "% of unknown verbs matched with one of GM in dictionary.", i, 'of', len(unknown), file=sys.stderr)
             print("UNKNOWN CHECKING: %.2f" % (100*accumulated_deep_i/len(unknown)), "% of unknown verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
 
