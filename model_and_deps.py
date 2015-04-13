@@ -151,12 +151,13 @@ def check_model(verb_model, verb_deps, print_not_matched=False):
                     return "%d %s %s" % (d['id'], d['type'], d['name'])
                 else:
                     return "%d %s" % (d['id'], d['type'])
-            print()
-            print('ДЕРЕВО ДЛЯ: ', verb['id'], verb['name'], verb['aspect'])
-            print([local_print(d) for d in deps])
-            print(source, end='\n\n')
-            print_model(verb_model)
-            print()
+            if print_not_matched:
+                print()
+                print('ДЕРЕВО ДЛЯ: ', verb['id'], verb['name'], verb['aspect'])
+                print([local_print(d) for d in deps])
+                print(source, end='\n\n')
+                print_model(verb_model)
+                print()
             everything_matched = False
         else:
             number_of_matched += 1

@@ -27,7 +27,7 @@ def valid_inf(inf, ru_table_dict):
 def valid_main_verb_dep(word, verb):
     main_deps = ["1-компл", "2-компл", "3-компл", "4-компл", "5-компл",
             "1-несобст-компл", "2-несобст-компл", "3-несобст-компл", "неакт-компл"]
-    noun_deps = ["предик"]
+    noun_deps = []
     return int(word[6]) == int(verb[0]) and (word[7] in main_deps or (word[3] == 'N' and word[7] in noun_deps))
 
 
