@@ -220,7 +220,6 @@ def get_dictionary(pickled=False):
         # filename = 'dict_cleaned.txt'
         filename = 'dict.txt'
         dict_res, err_number = parse_dict(filename, suppress_errors=True)
-        print('\nParsing completed!\n', file=sys.stderr)
         dict_res = create_pickling_dict(dict_res)
 
         print('Dumping dictionary...', file=sys.stderr)
