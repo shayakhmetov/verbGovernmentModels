@@ -2,9 +2,11 @@ __author__ = 'rim'
 import sys
 
 from add_ru_table import construct_ru_table
-from parse_dict import get_dictionary, print_model
+from parse_dict import get_dictionary, print_model, elements_print
 from get_dependencies_conll import get_dependencies
 import itertools
+from collections import Counter
+from classifier import train_and_predict
 
 
 def evaluate_element(element, deps, mask):
@@ -40,7 +42,7 @@ def evaluate_element(element, deps, mask):
     elif element[0] == 'A:':
         if len(element) == 5:
             nouns = [i for i, w in enumerate(deps)
-                     if w['type'] not in 'VS' and w['case'] == element[2] and check_animate(element[3], w['animate'])] #TODO фиксации - Р вместо П
+                     if w['type'] not in 'VS' and w['case'] == element[2] and check_animate(element[3], w['animate'])]
             prepositions = [i for i, w in enumerate(deps)
                             if w['type'] == 'S' and w['name'] == element[1]]
             for prep in prepositions:
@@ -166,9 +168,93 @@ def check_model(verb_model, verb_deps, print_not_matched=False, check_all=False)
         return None, 0
 
 
+def print_one_gov_model(model, coordinates, file=sys.stdout):
+    omonim = model[coordinates[0]]
+    syntax_role = omonim['syntax_roles'][coordinates[1]]
+    gov_model = syntax_role['gov_models'][coordinates[2]]
+    for elementary_expr in gov_model['elements']:
+        if elementary_expr != '+':
+            elements_print(1, elementary_expr, file=file)
+        else:
+            print(' ', elementary_expr, file=file)
+
+
+def get_raw_gov_models(model):
+    results = []
+    for omonim in model:
+        for syntax_role in omonim['syntax_roles']:
+            for gov_model in syntax_role['gov_models']:
+                result = {'verb_aspect': omonim['verb_aspect'],
+                          'transitive': syntax_role['transitive'],
+                          'gov_model': gov_model['elements']}
+                results.append(result)
+    return results
+
+
+def construct_gov_model(raw_gov_models):
+    omonim1 = ([gm for gm in raw_gov_models if gm['verb_aspect'] == 'св'], 'св')
+    omonim2 = ([gm for gm in raw_gov_models if gm['verb_aspect'] == 'нсв'], 'нсв')
+    omonim3 = ([gm for gm in raw_gov_models if gm['verb_aspect'] == 'св/нсв'], 'св/нсв')
+    new_model = []
+    for omonim, aspect in [omonim1, omonim2, omonim3]:
+        if omonim:
+            new_omonim = {'verb_aspect': aspect, 'syntax_roles': []}
+            syntax_role1 = ([gm for gm in omonim if gm['transitive'] == 'п'], 'п')
+            syntax_role2 = ([gm for gm in omonim if gm['transitive'] == 'нп'], 'нп')
+            syntax_role3 = ([gm for gm in omonim if gm['transitive'] == 'п/нп'], 'п/нп')
+            syntax_role4 = ([gm for gm in omonim if gm['transitive'] == 'возвр'], 'возвр')
+            for syntax_role, transitive in [syntax_role1, syntax_role2, syntax_role3, syntax_role4]:
+                if syntax_role:
+                    new_syntax_role = {'gov_models': [], 'transitive': transitive}
+                    for gm in syntax_role:
+                        new_syntax_role['gov_models'].append({'elements': gm['gov_model']})
+                    new_omonim['syntax_roles'].append(new_syntax_role)
+            new_model.append(new_omonim)
+    return new_model
+
+
+def compute_complexity_gm(raw_gov_model):
+    def compute_complexity_expr(elementary_expr):
+        if elementary_expr[0] in ['DO:', 'A:', 'C:', 'INF']:
+            return 1
+        else:
+            for element in elementary_expr:
+                if element == '&&' or element == '||':
+                    return len(elementary_expr)
+                else:
+                    return compute_complexity_expr(element)
+    complexity = 0
+    for elementary_expr in raw_gov_model['gov_model']:
+        if elementary_expr != '+':
+            complexity += compute_complexity_expr(elementary_expr)
+        else:
+            complexity += len(raw_gov_model['gov_model'])
+    return complexity
+
+
+def transform_words(words, ru_table_dict):
+    transform_case = {'accusative': 'В', 'dative': 'Д', 'genitive': 'Р', 'instrumental': 'Т', 'locative': 'П'}
+    transform_animate = {'yes': 'о', 'no': 'но', '-': 'о/но', '': 'о/но'}
+    result = []
+    for word in words:
+        temp = {'name': word[2], 'type': word[4], 'id': int(word[0])}
+        if temp['type'] not in 'VS':
+            temp['case'] = transform_case[ru_table_dict[word[5]][3]]
+            temp['animate'] = transform_animate[ru_table_dict[word[5]][0]]
+        result.append(temp)
+        return result
+
+
+def transform_verb(verb_word, ru_table_dict):
+    transform_aspect = {'progressive': 'нсв', 'perfective': 'св', 'biaspectual': 'св/нсв'}
+    return {'aspect': transform_aspect[ru_table_dict[verb_word[5]][1]], 'id': int(verb_word[0]), 'name': verb_word[2]}
+
+
 def main():
     big_checking = False
     unknown_checking = False
+    train_and_classify = False
+    construct_unknown_models = True
 
     print(file=sys.stderr)
     ru_table_filename = 'ru-table.tab'
@@ -181,34 +267,18 @@ def main():
 
     deps_dict = {}
 
-    def transform_words(words):
-        transform_case = {'accusative': 'В', 'dative': 'Д', 'genitive': 'Р', 'instrumental': 'Т', 'locative': 'П'}
-        transform_animate = {'yes': 'о', 'no': 'но', '-': 'о/но', '': 'о/но'} #TODO  '-': 'о/но'??
-        result = []
-        for word in words:
-            temp = {'name': word[2], 'type': word[4], 'id': int(word[0])}
-            if temp['type'] not in 'VS':
-                temp['case'] = transform_case[ru_table_dict[word[5]][3]]
-                temp['animate'] = transform_animate[ru_table_dict[word[5]][0]]
-            result.append(temp)
-        return result
-
-    def transform_verb(verb_word):
-        transform_aspect = {'progressive': 'нсв', 'perfective': 'св', 'biaspectual': 'св/нсв'}
-        return {'aspect': transform_aspect[ru_table_dict[verb_word[5]][1]], 'id': int(verb_word[0]), 'name': verb_word[2]}
-
     i = 0
     for verb_deps in all_verbs_dependencies:
         verb_name = verb_deps['verb'][2]
         if verb_name in deps_dict:
-            deps_dict[verb_name]['all_deps'].append(transform_words(verb_deps['deps']))
-            deps_dict[verb_name]['verb'].append(transform_verb(verb_deps['verb']))
+            deps_dict[verb_name]['all_deps'].append(transform_words(verb_deps['deps'], ru_table_dict))
+            deps_dict[verb_name]['verb'].append(transform_verb(verb_deps['verb'], ru_table_dict))
             deps_dict[verb_name]['sources'].append(verb_deps['source'])
         else:
             if verb_deps['known']:
                 i += 1
-            deps_dict[verb_name] = {'verb': [transform_verb(verb_deps['verb'])],
-                                    'all_deps': [transform_words(verb_deps['deps'])],
+            deps_dict[verb_name] = {'verb': [transform_verb(verb_deps['verb'], ru_table_dict)],
+                                    'all_deps': [transform_words(verb_deps['deps'], ru_table_dict)],
                                     'sources': [verb_deps['source']],
                                     'known': verb_deps['known']}
 
@@ -217,6 +287,9 @@ def main():
     i = 0
     deep_i = 0.
     known = {verb_name: value for verb_name, value in deps_dict.items() if value['known']}
+    unknown = {verb_name: value for verb_name, value in deps_dict.items() if not value['known']}
+
+    # --MAIN STATISTICS--
 
     for verb_name, value in known.items():
         result, percent = check_model(dictionary[verb_name]['model'], value, print_not_matched=True, check_all=True)
@@ -226,9 +299,10 @@ def main():
     print("KNOWN CHECKING: %.2f" % (100*i/len(known)), "% of known verbs matched.", i, 'of', len(known), file=sys.stderr)
     print("KNOWN CHECKING: %.2f" % (100*deep_i/len(known)), "% of known verbs' occurences matched.", file=sys.stderr)
 
+    # --EXTRA STATISTICS--
     if big_checking:
         print('\nRunning big checking...', file=sys.stderr)
-        with open('compared_models.txt', 'w') as compared_models, open('temp_not_matched_verbs', 'w') as not_matched_file:
+        with open('compared_models.txt', 'w') as compared_models, open('not_matched_known.txt', 'w') as not_matched_known_file:
             i = 0
             accumulated_deep_i = 0.
             for verb_name, value in known.items():
@@ -246,28 +320,32 @@ def main():
                             if result:
                                 i += 1
                                 deep_i = 1
+                                print('-'*40, file=compared_models)
                                 print('TWO MODELS:', file=compared_models)
                                 print('MODEL THAT DID NOT MATCH:', verb_name, file=compared_models)
                                 print_model(dictionary[verb_name]['model'], file=compared_models)
                                 print('MODEL THAT MATCHED:', some_verb, file=compared_models)
                                 print_model(dictionary[some_verb]['model'], file=compared_models)
+                                print('GOV_MODELS THAT WAS USED:', file=compared_models)
+                                for coordinates, freq in sorted(Counter(result).items(), key=lambda item: item[1], reverse=True):
+                                    print('FREQ = 5:', file=compared_models)
+                                    print_one_gov_model(dictionary[some_verb]['model'], coordinates, file=compared_models)
                                 print(file=compared_models)
                                 break
                             elif percent > deep_i:
-                                 deep_i = percent
+                                deep_i = percent
                 assert 0 <= deep_i <= 1
                 accumulated_deep_i += deep_i
                 if deep_i == 0:
-                    print(verb_name, file=not_matched_file)
+                    print(verb_name, file=not_matched_known_file)
 
             print("BIG_CKECKING: %.2f" % (100*i/len(known)), "% of known verbs matched with one of GM in dictionary.", i, 'of', len(known), file=sys.stderr)
-            print("BIG_CKECKING: %.2f" % (100*accumulated_deep_i/len(known)), "% of known verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
+            # print("BIG_CKECKING: %.2f" % (100*accumulated_deep_i/len(known)), "% of known verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
             #TODO print not_matched for the most likely GM
 
     if unknown_checking:
         print('\nRunning unknown checking...', file=sys.stderr)
-        unknown = {verb_name: value for verb_name, value in deps_dict.items() if not value['known']}
-        with open('gov_model_unknown.txt', 'w') as file_unknown_verbs:
+        with open('not_matched_unknown.txt', 'w') as not_matched_known_file:
             i = 0
             accumulated_deep_i = 0.
             for verb_name, value in unknown.items():
@@ -277,19 +355,57 @@ def main():
                     if result:
                         i += 1
                         deep_i = 1
-                        print(verb_name, file=file_unknown_verbs)
-                        print_model(dictionary[some_verb]['model'], file=file_unknown_verbs)
-                        print(file=file_unknown_verbs)
                         break
                     elif percent > deep_i:
                          deep_i = percent
                 assert 0 <= deep_i <= 1
                 accumulated_deep_i += deep_i
+                if deep_i != 1:
+                    print(verb_name, file=not_matched_known_file)
 
             print("UNKNOWN CHECKING: %.2f" % (100*i/len(unknown)), "% of unknown verbs matched with one of GM in dictionary.", i, 'of', len(unknown), file=sys.stderr)
-            print("UNKNOWN CHECKING: %.2f" % (100*accumulated_deep_i/len(unknown)), "% of unknown verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
+            # print("UNKNOWN CHECKING: %.2f" % (100*accumulated_deep_i/len(unknown)), "% of unknown verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
 
+    if construct_unknown_models:
+        with open('new_models.txt', 'w') as new_models_file:
+            print('\nConstructing new government models...', file=sys.stderr)
+            all_raw_gov_models = []
+            for verb_name, value in dictionary.items():
+                for raw_gov_model in get_raw_gov_models(value['model']):
+                    if raw_gov_model not in all_raw_gov_models:
+                        all_raw_gov_models.append(raw_gov_model)
+            all_raw_gov_models = sorted(all_raw_gov_models, key=lambda gm: compute_complexity_gm(gm))
+            all_gov_models = [construct_gov_model([gm]) for gm in all_raw_gov_models]
 
+            number_of_constructed = 0
+            for verb_name, value in unknown.items():
+                can_construct = True
+                indices = []
+                for deps, source in zip(value['all_deps'], value['sources']):
+                    matched = False
+                    verb_deps = {'verb': value['verb'], 'all_deps': [deps], 'sources': [source]}
+
+                    for i, gov_model in enumerate(all_gov_models):
+                        result, percent = check_model(gov_model, verb_deps)
+                        if result:
+                            if i not in indices:
+                                indices.append(i)
+                            matched = True
+                            break
+                    if not matched:
+                        can_construct = False
+                        break
+                if can_construct:
+                    number_of_constructed += 1
+                    constructed_model = construct_gov_model([all_raw_gov_models[i] for i in sorted(indices)])
+
+                    assert check_model(constructed_model, value)[0]
+
+                    print(verb_name, file=new_models_file)
+                    print_model(constructed_model, file=new_models_file)
+                    print(file=new_models_file)
+
+            print("CONSTRUCTED MODELS: %.2f" % (100*number_of_constructed/len(unknown)), "% of unknown verbs", number_of_constructed, 'of', len(unknown), file=sys.stderr)
 
 if __name__ == '__main__':
     main()
