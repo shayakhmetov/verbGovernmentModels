@@ -132,6 +132,15 @@ def check_gov_model(verb_model, verb, deps):
     return None
 
 
+def local_print(d):
+                if d['type'] not in 'VS':
+                    return "%d %s %s %s" % (d['id'], d['type'], d['case'], d['animate'])
+                elif d['type'] == 'S':
+                    return "%d %s %s" % (d['id'], d['type'], d['name'])
+                else:
+                    return "%d %s" % (d['id'], d['type'])
+
+
 def check_model(verb_model, verb_deps, print_not_matched=False, check_all=False):
     result = []
     everything_matched = True
@@ -139,13 +148,6 @@ def check_model(verb_model, verb_deps, print_not_matched=False, check_all=False)
     for verb, deps, source in zip(verb_deps['verb'], verb_deps['all_deps'], verb_deps['sources']):
         matched = check_gov_model(verb_model, verb, deps)
         if not matched:
-            def local_print(d):
-                if d['type'] not in 'VS':
-                    return "%d %s %s %s" % (d['id'], d['type'], d['case'], d['animate'])
-                elif d['type'] == 'S':
-                    return "%d %s %s" % (d['id'], d['type'], d['name'])
-                else:
-                    return "%d %s" % (d['id'], d['type'])
             if print_not_matched:
                 print()
                 print('ДЕРЕВО ДЛЯ: ', verb['id'], verb['name'], verb['aspect'])
@@ -394,6 +396,8 @@ def main():
                             break
                     if not matched:
                         can_construct = False
+                        print('cannot construct: ', verb_name, end='\t', file=sys.stderr)
+                        print([local_print(d) for d in deps], file=sys.stderr)
                         break
                 if can_construct:
                     number_of_constructed += 1
@@ -404,6 +408,7 @@ def main():
                     print(verb_name, file=new_models_file)
                     print_model(constructed_model, file=new_models_file)
                     print(file=new_models_file)
+
 
             print("CONSTRUCTED MODELS: %.2f" % (100*number_of_constructed/len(unknown)), "% of unknown verbs", number_of_constructed, 'of', len(unknown), file=sys.stderr)
 
