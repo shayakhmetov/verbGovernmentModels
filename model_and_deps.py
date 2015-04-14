@@ -242,7 +242,7 @@ def transform_words(words, ru_table_dict):
             temp['case'] = transform_case[ru_table_dict[word[5]][3]]
             temp['animate'] = transform_animate[ru_table_dict[word[5]][0]]
         result.append(temp)
-        return result
+    return result
 
 
 def transform_verb(verb_word, ru_table_dict):
@@ -282,8 +282,8 @@ def main():
                                     'sources': [verb_deps['source']],
                                     'known': verb_deps['known']}
 
+    print("All occurences =", sum([len(v['sources']) for k, v in deps_dict.items()]), file=sys.stderr)
     print("Known verbs =", i, "\tAll verbs =", len(deps_dict), file=sys.stderr)
-
     i = 0
     deep_i = 0.
     known = {verb_name: value for verb_name, value in deps_dict.items() if value['known']}
