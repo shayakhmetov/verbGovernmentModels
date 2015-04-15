@@ -257,6 +257,7 @@ def main():
     unknown_checking = False
     train_and_classify = False
     construct_unknown_models = True
+    known_checking = True
 
     print(file=sys.stderr)
     ru_table_filename = 'ru-table.tab'
@@ -291,17 +292,15 @@ def main():
     known = {verb_name: value for verb_name, value in deps_dict.items() if value['known']}
     unknown = {verb_name: value for verb_name, value in deps_dict.items() if not value['known']}
 
-    # --MAIN STATISTICS--
+    if known_checking:
+        for verb_name, value in known.items():
+            result, percent = check_model(dictionary[verb_name]['model'], value, print_not_matched=True, check_all=True)
+            if result:
+                i += 1
+            deep_i += percent
+        print("KNOWN CHECKING: %.2f" % (100*i/len(known)), "% of known verbs matched.", i, 'of', len(known), file=sys.stderr)
+        print("KNOWN CHECKING: %.2f" % (100*deep_i/len(known)), "% of known verbs' occurences matched.", file=sys.stderr)
 
-    for verb_name, value in known.items():
-        result, percent = check_model(dictionary[verb_name]['model'], value, print_not_matched=True, check_all=True)
-        if result:
-            i += 1
-        deep_i += percent
-    print("KNOWN CHECKING: %.2f" % (100*i/len(known)), "% of known verbs matched.", i, 'of', len(known), file=sys.stderr)
-    print("KNOWN CHECKING: %.2f" % (100*deep_i/len(known)), "% of known verbs' occurences matched.", file=sys.stderr)
-
-    # --EXTRA STATISTICS--
     if big_checking:
         print('\nRunning big checking...', file=sys.stderr)
         with open('compared_models.txt', 'w') as compared_models, open('not_matched_known.txt', 'w') as not_matched_known_file:
@@ -369,7 +368,7 @@ def main():
             # print("UNKNOWN CHECKING: %.2f" % (100*accumulated_deep_i/len(unknown)), "% of unknown verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
 
     if construct_unknown_models:
-        with open('new_models.txt', 'w') as new_models_file:
+        with open('new_models.txt', 'w') as new_models_file, open('cannot_construct.txt', 'w') as cannot_construct_file:
             print('\nConstructing new government models...', file=sys.stderr)
             all_raw_gov_models = []
             for verb_name, value in dictionary.items():
@@ -380,10 +379,10 @@ def main():
             all_gov_models = [construct_gov_model([gm]) for gm in all_raw_gov_models]
 
             number_of_constructed = 0
-            for verb_name, value in unknown.items():
+            for verb_name, value in known.items():
                 can_construct = True
                 indices = []
-                for deps, source in zip(value['all_deps'], value['sources']):
+                for verb, deps, source in zip(value['verb'], value['all_deps'], value['sources']):
                     matched = False
                     verb_deps = {'verb': value['verb'], 'all_deps': [deps], 'sources': [source]}
 
@@ -396,8 +395,9 @@ def main():
                             break
                     if not matched:
                         can_construct = False
-                        print('cannot construct: ', verb_name, end='\t', file=sys.stderr)
-                        print([local_print(d) for d in deps], file=sys.stderr)
+                        print('cannot construct: ', verb['id'], verb_name, end='\t', file=cannot_construct_file)
+                        print([local_print(d) for d in deps], file=cannot_construct_file)
+                        print(source, file=cannot_construct_file, end='\n\n')
                         break
                 if can_construct:
                     number_of_constructed += 1
@@ -410,7 +410,7 @@ def main():
                     print(file=new_models_file)
 
 
-            print("CONSTRUCTED MODELS: %.2f" % (100*number_of_constructed/len(unknown)), "% of unknown verbs", number_of_constructed, 'of', len(unknown), file=sys.stderr)
+            print("CONSTRUCTED MODELS: %.2f" % (100*number_of_constructed/len(known)), "% of known verbs", number_of_constructed, 'of', len(known), file=sys.stderr)
 
 if __name__ == '__main__':
     main()
