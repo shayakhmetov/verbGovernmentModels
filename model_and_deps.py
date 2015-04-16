@@ -252,11 +252,73 @@ def transform_verb(verb_word, ru_table_dict):
     return {'aspect': transform_aspect[ru_table_dict[verb_word[5]][1]], 'id': int(verb_word[0]), 'name': verb_word[2]}
 
 
+def construct_models(deps_dict, dictionary, filename_new_models, filename_cannot_construct):
+    known = None
+    max_deps_statistics = {}
+    with open(filename_new_models, 'w') as new_models_file, open(filename_cannot_construct, 'w') as cannot_construct_file:
+        all_raw_gov_models = []
+        for verb_name, value in dictionary.items():
+            for raw_gov_model in get_raw_gov_models(value['model']):
+                if raw_gov_model not in all_raw_gov_models:
+                    all_raw_gov_models.append(raw_gov_model)
+        all_raw_gov_models = sorted(all_raw_gov_models, key=lambda gm: compute_complexity_gm(gm))
+        all_gov_models = [construct_gov_model([gm]) for gm in all_raw_gov_models]
+
+        number_of_constructed = 0
+        for verb_name, value in deps_dict.items():
+            can_construct = True
+            indices = []
+            for verb, deps, source in zip(value['verb'], value['all_deps'], value['sources']):
+                matched = False
+                if value['known']:
+                    known = True
+                else:
+                    known = False
+                verb_deps = {'verb': value['verb'], 'all_deps': [deps], 'sources': [source]}
+
+                for i, gov_model in enumerate(all_gov_models):
+                    result, percent = check_model(gov_model, verb_deps)
+                    if result:
+                        if i not in indices:
+                            indices.append(i)
+                        matched = True
+                        break
+                if not matched:
+                    can_construct = False
+                    print('cannot construct: ', verb['id'], verb_name, end='\t', file=cannot_construct_file)
+                    print([local_print(d) for d in deps], file=cannot_construct_file)
+                    print(source, file=cannot_construct_file, end='\n\n')
+                    break
+                else:
+                    if len(deps) in max_deps_statistics:
+                        max_deps_statistics[len(deps)] += 1
+                    else:
+                        max_deps_statistics[len(deps)] = 1
+            if can_construct:
+                number_of_constructed += 1
+                constructed_model = construct_gov_model([all_raw_gov_models[i] for i in sorted(indices)])
+
+                assert check_model(constructed_model, value)[0]
+
+                print(verb_name, file=new_models_file)
+                print_model(constructed_model, file=new_models_file)
+                print(file=new_models_file)
+
+
+        print("CONSTRUCTED MODELS: %.2f" % (100*number_of_constructed/len(deps_dict)), end='', file=sys.stderr)
+        if known:
+            print("% of known verbs", number_of_constructed, 'of', len(deps_dict), file=sys.stderr)
+        else:
+            print("% of unknown verbs", number_of_constructed, 'of', len(deps_dict), file=sys.stderr)
+        print("Dependencies statistics: ", *['Deps with len=' + str(k) + ': ' + str(max_deps_statistics[k]) for k in sorted(max_deps_statistics.keys())], sep='\n', file=sys.stderr)
+
+
 def main():
     big_checking = False
     unknown_checking = False
     train_and_classify = False
     construct_unknown_models = True
+    construct_known_models = True
     known_checking = True
 
     print(file=sys.stderr)
@@ -298,8 +360,8 @@ def main():
             if result:
                 i += 1
             deep_i += percent
-        print("KNOWN CHECKING: %.2f" % (100*i/len(known)), "% of known verbs matched.", i, 'of', len(known), file=sys.stderr)
-        print("KNOWN CHECKING: %.2f" % (100*deep_i/len(known)), "% of known verbs' occurences matched.", file=sys.stderr)
+        print("KNOWN CHECKING: %.2f" % (100*i/len(known)), "% of known verbs matched with its GM.", i, 'of', len(known), file=sys.stderr)
+        print("KNOWN CHECKING: %.2f" % (100*deep_i/len(known)), "% of known verbs' occurences matched with its GM.", file=sys.stderr)
 
     if big_checking:
         print('\nRunning big checking...', file=sys.stderr)
@@ -366,51 +428,12 @@ def main():
 
             print("UNKNOWN CHECKING: %.2f" % (100*i/len(unknown)), "% of unknown verbs matched with one of GM in dictionary.", i, 'of', len(unknown), file=sys.stderr)
             # print("UNKNOWN CHECKING: %.2f" % (100*accumulated_deep_i/len(unknown)), "% of unknown verbs' occurences matched with one of GM in dictionary", file=sys.stderr)
-
     if construct_unknown_models:
-        with open('new_models.txt', 'w') as new_models_file, open('cannot_construct.txt', 'w') as cannot_construct_file:
-            print('\nConstructing new government models...', file=sys.stderr)
-            all_raw_gov_models = []
-            for verb_name, value in dictionary.items():
-                for raw_gov_model in get_raw_gov_models(value['model']):
-                    if raw_gov_model not in all_raw_gov_models:
-                        all_raw_gov_models.append(raw_gov_model)
-            all_raw_gov_models = sorted(all_raw_gov_models, key=lambda gm: compute_complexity_gm(gm))
-            all_gov_models = [construct_gov_model([gm]) for gm in all_raw_gov_models]
-
-            number_of_constructed = 0
-            for verb_name, value in known.items():
-                can_construct = True
-                indices = []
-                for verb, deps, source in zip(value['verb'], value['all_deps'], value['sources']):
-                    matched = False
-                    verb_deps = {'verb': value['verb'], 'all_deps': [deps], 'sources': [source]}
-
-                    for i, gov_model in enumerate(all_gov_models):
-                        result, percent = check_model(gov_model, verb_deps)
-                        if result:
-                            if i not in indices:
-                                indices.append(i)
-                            matched = True
-                            break
-                    if not matched:
-                        can_construct = False
-                        print('cannot construct: ', verb['id'], verb_name, end='\t', file=cannot_construct_file)
-                        print([local_print(d) for d in deps], file=cannot_construct_file)
-                        print(source, file=cannot_construct_file, end='\n\n')
-                        break
-                if can_construct:
-                    number_of_constructed += 1
-                    constructed_model = construct_gov_model([all_raw_gov_models[i] for i in sorted(indices)])
-
-                    assert check_model(constructed_model, value)[0]
-
-                    print(verb_name, file=new_models_file)
-                    print_model(constructed_model, file=new_models_file)
-                    print(file=new_models_file)
-
-
-            print("CONSTRUCTED MODELS: %.2f" % (100*number_of_constructed/len(known)), "% of known verbs", number_of_constructed, 'of', len(known), file=sys.stderr)
+        print('\nConstructing new government models for unknown verbs...', file=sys.stderr)
+        construct_models(unknown, dictionary, filename_new_models='new_models_unknown.txt', filename_cannot_construct='cannot_construct_unknown.txt')
+    if construct_known_models:
+        print('\nConstructing new government models for known verbs...', file=sys.stderr)
+        construct_models(known, dictionary, filename_new_models='new_models_known.txt', filename_cannot_construct='cannot_construct_known.txt')
 
 if __name__ == '__main__':
     main()
