@@ -76,6 +76,7 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
 def get_conll_verbs(conll_filename, dictionary, ru_table_dict):
     n = 0
     i = 0
+    max_lens = {}
     with open(conll_filename, 'r') as conll_file:
         one_clause = []
         for line in conll_file:
@@ -84,6 +85,10 @@ def get_conll_verbs(conll_filename, dictionary, ru_table_dict):
                 if verbs_dependencies:
                     i += 1
                     for verb_dependencies in verbs_dependencies:
+                        if len(verb_dependencies['deps']) not in max_lens:
+                            max_lens[len(verb_dependencies['deps'])] = 1
+                        else:
+                            max_lens[len(verb_dependencies['deps'])] += 1
                         yield verb_dependencies
                 one_clause = []
                 n += 1
@@ -97,7 +102,12 @@ def get_conll_verbs(conll_filename, dictionary, ru_table_dict):
             if verbs_dependencies:
                 i += 1
                 for verb_dependencies in verbs_dependencies:
+                    if len(verb_dependencies['deps']) not in max_lens:
+                        max_lens[len(verb_dependencies['deps'])] = 1
+                    else:
+                        max_lens[len(verb_dependencies['deps'])] += 1
                     yield verb_dependencies
+    print("Dependencies statistics: ", [str(k) + ': ' + str(max_lens[k]) for k in sorted(max_lens.keys())], file=sys.stderr)
     print("%.2f" % (100*i/n), "% of output_parser is used.", file=sys.stderr)
 
 
