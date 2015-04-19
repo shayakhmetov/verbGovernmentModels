@@ -103,6 +103,11 @@ def construct_new_models(deps_dict, dictionary, filename_new_models, filename_ca
                         if i not in indices:
                             indices.append(i)
                         matched = True
+                        c = compute_complexity_gm(all_raw_gov_models[i])
+                        if c not in used_complexities:
+                            used_complexities[c] = 1
+                        else:
+                            used_complexities[c] += 1
                         break
                 if not matched:
                     can_construct = False
@@ -110,8 +115,6 @@ def construct_new_models(deps_dict, dictionary, filename_new_models, filename_ca
                     print([local_print(d) for d in deps], file=cannot_construct_file)
                     print(source, file=cannot_construct_file, end='\n\n')
                     break
-                else:
-                    if
             if can_construct:
                 number_of_constructed += 1
                 constructed_model = construct_gov_model([all_raw_gov_models[i] for i in sorted(indices)])
@@ -128,3 +131,5 @@ def construct_new_models(deps_dict, dictionary, filename_new_models, filename_ca
             print("% of known verbs", number_of_constructed, 'of', len(deps_dict), file=sys.stderr)
         else:
             print("% of unknown verbs", number_of_constructed, 'of', len(deps_dict), file=sys.stderr)
+        print('constructed compexities distribution: ', [str(k) + ':' + str(used_complexities[k]) for k in sorted(used_complexities.keys())], file=sys.stderr)
+
