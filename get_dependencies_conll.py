@@ -1,14 +1,13 @@
 __author__ = 'rim'
 import sys
-
 denied_vs = [".", "?", "!", "…", "iq", '<unknown>', 'её']
 denied_cases = ['nominative', '*n', 'vocative', '-', '']
-denied_verb_forms = ['participle', 'gerund', 'imperative']
+allowed_verb_forms = ['infinitive', 'indicative']
 
 
 def valid_verb(verb, ru_table_dict):
     return verb[3] == 'V' and verb[2] not in denied_vs and verb[5] in ru_table_dict \
-        and ru_table_dict[verb[5]][17] not in denied_verb_forms
+        and ru_table_dict[verb[5]][17] in allowed_verb_forms
 
 
 def valid_word(word, ru_table_dict):
@@ -24,9 +23,11 @@ def valid_inf(inf, ru_table_dict):
         and inf[5] in ru_table_dict and ru_table_dict[inf[5]][17] == 'infinitive'
 
 
-def valid_main_verb_dep(word, verb):
+def valid_main_verb_dep(word, verb, ru_table_dict):
     main_deps = ["1-компл", "2-компл", "3-компл", "4-компл", "5-компл", "неакт-компл"]
-    return int(word[6]) == int(verb[0]) and word[7] in main_deps
+    return int(word[6]) == int(verb[0]) and\
+           (word[7] in main_deps)
+            #or (word[7] == 'обст' and word[3] == 'N' and valid_word(word, ru_table_dict)) and ru_table_dict[word[5]][3] == 'instrumental')
 
 
 def valid_word_for_prep(word, prep, ru_table_dict):
@@ -49,7 +50,7 @@ def get_verb_dependencies(one_clause, dictionary, ru_table_dict):
         if valid_verb(word, ru_table_dict):
             depended_words = [w for w in one_clause if w != word]
             for i, depended_word in enumerate(depended_words):
-                if valid_main_verb_dep(depended_word, word):
+                if valid_main_verb_dep(depended_word, word, ru_table_dict):
                     if valid_word(depended_word, ru_table_dict):
                         dependencies.append(depended_word)
 
